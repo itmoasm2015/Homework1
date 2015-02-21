@@ -1,0 +1,11 @@
+.idea/
+*.swp
+
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+homework1
+*.o
+*.a
