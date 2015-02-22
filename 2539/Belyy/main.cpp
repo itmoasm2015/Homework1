@@ -3,18 +3,18 @@
 #include <stdint.h>
 
 // STATE variable
-//   5     4     1     0
+//   13    12    9     8
 // [ _ ] [ _ _ _ _ ] [ _ ]
 // |     |           |___  control flag
 // |     |_______________  flags
 // |_____________________  size
 
-const int CONTROL_FLAG_STATE = 1 << 0;
-const int FLAG_PLUS_STATE = 1 << 1;
-const int FLAG_SPACE_STATE = 1 << 2;
-const int FLAG_MINUS_STATE = 1 << 3;
-const int FLAG_ZERO_STATE = 1 << 4;
-const int SIZE_LONG_STATE = 1 << 5;
+const int CONTROL_FLAG_STATE = 1 << 8;
+const int FLAG_PLUS_STATE = 1 << 9;
+const int FLAG_SPACE_STATE = 1 << 10;
+const int FLAG_MINUS_STATE = 1 << 11;
+const int FLAG_ZERO_STATE = 1 << 12;
+const int SIZE_LONG_STATE = 1 << 13;
 
 #define print_num(T)     T num = va_arg(vl, T); \
                          T temp = num; \
@@ -27,10 +27,11 @@ const int SIZE_LONG_STATE = 1 << 5;
                          if (num < 0 || state & FLAG_PLUS_STATE || state & FLAG_SPACE_STATE) { \
                              width--; \
                          } \
-                         if (!(state & FLAG_MINUS_STATE)) { \
+                         if (!(state & (FLAG_MINUS_STATE | FLAG_ZERO_STATE))) { \
                              for (int i = 0; i < width; i++) { \
-                                 *out++ = state & FLAG_ZERO_STATE ? '0' : ' '; \
+                                 *out++ = ' '; \
                              } \
+                             width = 0; \
                          } \
                          if (num < 0) { \
                              *out++ = '-'; \
@@ -38,6 +39,11 @@ const int SIZE_LONG_STATE = 1 << 5;
                              *out++ = '+'; \
                          } else if (state & FLAG_SPACE_STATE) {\
                              *out++ = ' '; \
+                         } \
+                         if (!(state & FLAG_MINUS_STATE)) { \
+                             for (int i = 0; i < width; i++) { \
+                                 *out++ = '0'; \
+                             } \
                          } \
                          out += len; \
                          do { \
@@ -54,20 +60,18 @@ const int SIZE_LONG_STATE = 1 << 5;
                          state = width = 0;
 
 int hw_atoi(const char * in, int * out) {
-    int len = 0;
-    const char * in_orig = in;
-
-    do {
-        ++in;
-        ++len;
-    } while ('0' <= *in && *in <= '9');
-
     *out = 0;
+    int len = 0;
+    
     do {
-        --in;
         *out *= 10;
         *out += *in - '0';
-    } while (in_orig != in);
+        ++in;
+        ++len;
+        if (!('0' <= *in && *in <= '9')) {
+            break;
+        }
+    } while (true);
 
     return len;
 }
@@ -129,7 +133,7 @@ void hw_sprintf(char * out, const char * format, ...) {
                 }
             }
 
-            // preverse malformed control seqs
+            // preserve malformed control seqs
             else if (cur != '%') {
                 *out++ = '%';
                 *out++ = cur;
@@ -146,14 +150,16 @@ void hw_sprintf(char * out, const char * format, ...) {
 }
 
 int main() {
-    char out[256];
+    char out[2560];
 
     // some tests
     hw_sprintf(out, "Hello world %d\n", 239);
     printf("%s", out);
-    hw_sprintf(out, "%+5u\n", 51);
+    hw_sprintf(out, "%0+5u\n", 51);
     printf("%s", out);
-    hw_sprintf(out, "%8u=%-8u\n", 1234, 1234);
+    hw_sprintf(out, "<%8u=%-8u>\n", 1234, 5678);
+    printf("%s", out);
+    hw_sprintf(out, "%i\n", -1);
     printf("%s", out);
     hw_sprintf(out, "%llu\n", (long long)-1);
     printf("%s", out);
