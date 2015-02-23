@@ -30,10 +30,10 @@ hw_atoi:            xor ebx, ebx
                     sub bl, '0'
                     inc esi
                     cmp byte [esi], '0'
-                    jl hw_sprintf.continue_no_inc
+                    jl hw_sprintf.read_format
                     cmp byte [esi], '9'
                     jle .convert_to_int
-                    jmp hw_sprintf.continue_no_inc
+                    jmp hw_sprintf.read_format
 
 
 ; outs 32-bit integer (EBX) from hw_sprintf's args
@@ -92,9 +92,10 @@ out32:              push eax                ; save STATE and WIDTH vars
                     test dword [esp + 8], FLAG_MINUS_STATE
                     jnz out_right_spaces    ; output right spaces, if needed
                     add esp, 4
-.finally:           add esp, 8
+.finally:           add esp, 4
                     add ebp, 4              ; EBP = next(...)
-                    xor eax, eax            ; clear STATE and WIDTH vars
+                    pop eax
+                    xor ah, ah              ; clear STATE and WIDTH vars
                     xor ebx, ebx            ; and return to hw_sprintf()
                     jmp hw_sprintf.continue
 
@@ -181,9 +182,10 @@ out64:              push eax                ; looks similar to out32,
                     test dword [esp + 8], FLAG_MINUS_STATE
                     jnz out_right_spaces    ; output right spaces, if needed
                     add esp, 4
-.finally:           add esp, 8
+.finally:           add esp, 4
                     add ebp, 8              ; EBP = next(...)
-                    xor eax, eax            ; clear STATE and WIDTH vars
+                    pop eax
+                    xor ah, ah              ; clear STATE and WIDTH vars
                     xor ebx, ebx            ; and return to hw_sprintf()
                     jmp hw_sprintf.continue
 
@@ -289,8 +291,8 @@ hw_sprintf:         push ebp
                     lea ebp, [esp + 28]     ; ebp = head(...)
                     xor eax, eax            ; state = 0
                     xor ebx, ebx            ; width = 0
-                    mov al, byte [esi]
-.read_format:       cmp al, '%'
+.read_format:       mov al, byte [esi]
+                    cmp al, '%'
                     jne .not_percent
 ;; if CONTROL_FLAG bit is set, reset it and vice versa
                     xor eax, CONTROL_FLAG_STATE
@@ -315,12 +317,11 @@ hw_sprintf:         push ebp
                     jg .maybe_read_width
 .maybe_continue:    cmp al, '%'
                     jne .out_malformed
-.continue:          inc esi
-.continue_no_inc:   mov al, byte [esi]
-                    test al, al
-                    jne .read_format
-                    mov byte [edi], 0
-                    pop ebx
+.continue:          test al, al
+                    je .finally
+                    inc esi
+                    jmp .read_format
+.finally:           pop ebx
                     pop edi
                     pop esi
                     pop ebp
@@ -359,7 +360,7 @@ hw_sprintf:         push ebp
                     inc edi
                     mov [edi], al
                     inc edi
-                    xor eax, eax
+                    xor ah, ah
                     xor ebx, ebx
                     jmp .continue
 

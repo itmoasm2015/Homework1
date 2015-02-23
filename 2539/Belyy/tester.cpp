@@ -23,5 +23,11 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "50%%\n");
     printf("%s", out);
+    hw_sprintf(out, "%%%d\n", 123);
+    printf("%s", out);
+    hw_sprintf(out, "%50%=\n");
+    printf("%s", out);
+    hw_sprintf(out, "%");
+    printf("%s", out);
     return 0;
 }
