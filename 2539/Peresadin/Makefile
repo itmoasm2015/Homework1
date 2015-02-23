@@ -19,4 +19,4 @@ clean:
 	rm -f libhw.a
 	rm -f libhw.o
 	rm -f tests.o
-	rm -f tests
+;	rm -f tests
