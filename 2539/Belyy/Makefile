@@ -7,6 +7,7 @@ clean:
 	rm -f libhw.a
 	rm -f libhw.o
 	rm -f tester.o
+	rm -f tester
 
 tester: libhw.a tester.o
 	g++ -o tester $(CXX_FLAGS) tester.o -lhw

@@ -8,6 +8,8 @@ FLAG_SPACE_STATE    equ     1 << 10
 FLAG_MINUS_STATE    equ     1 << 11
 FLAG_ZERO_STATE     equ     1 << 12
 SIZE_LONG_STATE     equ     1 << 13
+UNSIGNED_STATE      equ     1 << 14
+INTERN_SIGN_STATE   equ     1 << 15
 
 
 ; takes:
@@ -38,110 +40,216 @@ hw_atoi:            xor ebx, ebx
 ;   EDX - temporary variable 2
 ;  [ESP] - integer width
 ;  [ESP + 4] - state
-out_int32:          push eax
+out32:              push eax
                     push ebx
                     xor ebx, ebx
                     mov ecx, [ebp]
-.calculate_len:     mov eax, 1717986919
-                    imul ecx
+                    test dword [esp + 4], UNSIGNED_STATE
+                    jnz .calculate_len
+                    test ecx, ecx
+                    js .convert_to_uint
+.calculate_len:     mov eax, -858993459
+                    mul ecx
+                    shr edx, 3
                     mov ecx, edx
-                    shr ecx, 31
-                    sar edx, 2
-                    lea ecx, [ecx + edx]    ; ecx = ecx / 10
                     inc ebx
                     test ecx, ecx
                     jnz .calculate_len
-                    sub [esp], ebx
-                    cmp dword [ebp], 0
-                    jl .dec_width
-                    test dword [esp + 4], FLAG_PLUS_STATE | FLAG_SPACE_STATE
-                    jnz .dec_width
-.after_dec:         test dword [esp + 4], FLAG_MINUS_STATE | FLAG_ZERO_STATE
-                    jz .out_left_spaces
-.out_sign:          cmp dword [ebp], 0
-                    jl .out_minus
-                    test dword [esp +4], FLAG_PLUS_STATE
-                    jnz .out_plus
-                    test dword [esp +4], FLAG_SPACE_STATE
-                    jnz .out_space
-.after_sign:        test dword [esp + 4], FLAG_MINUS_STATE
-                    jz .out_zeros
+                    push .out_number
+                    jmp out_left_part
 .out_number:        lea edi, [edi + ebx]
                     mov ecx, [ebp]
 .out_number_loop:   dec edi
                     mov byte [edi], '0'
-                    mov eax, 1717986919
-                    imul ecx
+                    mov eax, -858993459
+                    mul ecx
+                    shr edx, 3
                     mov ecx, edx
-                    shr ecx, 31
-                    sar edx, 2
-                    lea ecx, [ecx + edx]
                     imul ecx, 10
                     mov eax, [ebp]
                     sub eax, ecx            ; eax = ecx % 10
                     add [edi], al
-                    mov eax, 1717986919
-                    imul ecx
-                    mov ecx, edx
-                    shr ecx, 31
-                    sar edx, 2
-                    lea ecx, [ecx + edx]    ; ecx = ecx / 10
+                    mov eax, -858993459
+                    mul ecx
+                    shr edx, 3
+                    mov ecx, edx            ; ecx = ecx / 10
                     mov [ebp], ecx
                     test ecx, ecx
                     jnz .out_number_loop
                     lea edi, [edi + ebx]
-                    test dword [esp + 4], FLAG_MINUS_STATE
-                    jnz .out_right_spaces
+                    push .finally
+                    test dword [esp + 8], FLAG_MINUS_STATE
+                    jnz out_right_spaces
+                    add esp, 4
 .finally:           add esp, 8
                     add ebp, 4
                     xor eax, eax
                     xor ebx, ebx
                     jmp hw_sprintf.continue
 
-.dec_width:         dec dword [esp]
-                    jmp .after_dec
+.convert_to_uint:   neg ecx
+                    mov [ebp], ecx
+                    or dword [esp + 4], INTERN_SIGN_STATE
+                    jmp .calculate_len
 
-.out_left_spaces:   mov ecx, [esp]
+
+; takes:
+;   EAX - state (stored in ESP + 4)
+;   EBX - integer width (stored in ESP)
+;   EDI - pointer to out buffer
+;   EBP - pointer to cur stack arg
+; uses:
+;   EAX - temporary variable 1
+;   EBX - length of cur stack arg
+;   ECX - value of cur stack arg
+;   EDX - temporary variable 2
+;  [ESP] - integer width
+;  [ESP + 4] - state
+out64:              push eax
+                    push ebx
+                    xor ebx, ebx
+                    mov eax, [ebp]
+                    mov edx, [ebp + 4]
+                    mov ecx, 10
+                    test dword [esp + 4], UNSIGNED_STATE
+                    jnz .calculate_len
+                    test edx, edx
+                    js .convert_to_uint
+.calculate_len:     push eax
+                    mov eax, edx
+                    xor edx, edx
+                    div ecx
+                    xchg eax, [esp]
+                    div ecx
+                    pop edx
+                    inc ebx
+                    test eax, eax
+                    jnz .calculate_len
+                    test edx, edx
+                    jnz .calculate_len
+                    push .out_number
+                    jmp out_left_part
+.out_number:        lea edi, [edi + ebx]
+                    mov ecx, 10
+.out_number_loop:   dec edi
+                    mov byte [edi], '0'
+                    mov eax, [ebp + 4]
+                    xor edx, edx
+                    div ecx
+                    lea eax, [edx * 3]
+                    lea eax, [eax * 2]      ; eax = 6 * (edx % 10)
+                    push eax                ;     = (2^32 * edx) % 10
+                    xor edx, edx
+                    mov eax, [ebp]
+                    div ecx
+                    pop eax
+                    lea eax, [eax + edx]    ; al  = (2^32 * edx + eax) % 10
+                                            ;     = (edx:eax) % 10
+                    mov al, [rem_table + eax]
+                    add [edi], al
+                    mov eax, [ebp]
+                    mov edx, [ebp + 4]
+                    push eax
+                    mov eax, edx
+                    xor edx, edx
+                    div ecx
+                    xchg eax, [esp]
+                    div ecx
+                    pop edx
+                    mov [ebp], eax
+                    mov [ebp + 4], edx      ; (edx:eax) = (edx:eax) / 10
+                    test eax, eax
+                    jnz .out_number_loop
+                    test edx, edx
+                    jnz .out_number_loop
+.after_number:      lea edi, [edi + ebx]
+                    push .finally
+                    test dword [esp + 8], FLAG_MINUS_STATE
+                    jnz out_right_spaces
+                    add esp, 4
+.finally:           add esp, 8
+                    add ebp, 8
+                    xor eax, eax
+                    xor ebx, ebx
+                    jmp hw_sprintf.continue
+
+.convert_to_uint:   neg edx
+                    neg eax
+                    sbb edx, 0
+                    mov [ebp], eax
+                    mov [ebp + 4], edx
+                    or dword [esp + 4], INTERN_SIGN_STATE
+                    jmp .calculate_len
+
+out_left_part:      sub [esp + 4], ebx
+                    mov eax, [esp + 8]
+                    push .after_dec
+                    test eax, INTERN_SIGN_STATE
+                    jnz dec_width
+                    test eax, FLAG_PLUS_STATE | FLAG_SPACE_STATE
+                    jnz dec_width
+                    add esp, 4
+.after_dec:         push .out_sign
+                    test eax, FLAG_MINUS_STATE | FLAG_ZERO_STATE
+                    jz out_left_spaces
+                    add esp, 4
+.out_sign:          push .after_sign
+                    test eax, INTERN_SIGN_STATE
+                    jnz out_minus
+                    test eax, FLAG_PLUS_STATE
+                    jnz out_plus
+                    test eax, FLAG_SPACE_STATE
+                    jnz out_space
+                    add esp, 4
+.after_sign:        push .out_number
+                    test eax, FLAG_MINUS_STATE
+                    jz out_zeros
+                    add esp, 4
+.out_number:        ret
+
+dec_width:          dec dword [esp + 8]
+                    ret
+
+out_left_spaces:    mov ecx, [esp + 8]
 .left_spaces_loop:  cmp ecx, 0
                     jle .left_finally
                     mov byte [edi], ' '
                     inc edi
                     dec ecx
                     jmp .left_spaces_loop
-.left_finally:      mov dword [esp], 0
-                    jmp .out_sign
+.left_finally:      mov dword [esp + 8], 0
+                    ret
 
-.out_zeros:         mov ecx, [esp]
+out_zeros:          mov ecx, [esp + 8]
 .zeros_loop:        cmp ecx, 0
-                    jle .out_number
+                    jle .zeros_finally
                     mov byte [edi], '0'
                     inc edi
                     dec ecx
                     jmp .zeros_loop
+.zeros_finally:     ret
 
-.out_right_spaces:  mov ecx, [esp]
+out_right_spaces:   mov ecx, [esp + 4]
 .right_spaces_loop: cmp ecx, 0
-                    jle .finally
+                    jle .right_finally
                     mov byte [edi], ' '
                     inc edi
                     dec ecx
                     jmp .right_spaces_loop
+.right_finally:     ret
 
-.out_minus:         mov byte [edi], '-'
+out_minus:          mov byte [edi], '-'
                     inc edi
-                    jmp .after_sign
+                    ret
 
-.out_plus:          mov byte [edi], '+'
+out_plus:          mov byte [edi], '+'
                     inc edi
-                    jmp .after_sign
+                    ret
 
-.out_space:         mov byte [edi], ' '
+out_space:          mov byte [edi], ' '
                     inc edi
-                    jmp .after_sign
+                    ret
 
-
-; (* note to self : I can safely use EAX, ECX and EDX
-; if I want to use EBX, ESI, EDI or EBP, I should preserve them *)
 
 ; void hw_sprintf(char * out, const char * format, ...)
 ; takes:
@@ -235,7 +343,19 @@ hw_sprintf:         push ebp
                     xor ebx, ebx
                     jmp .continue
 
+.out_uint:          or eax, UNSIGNED_STATE
 .out_int:           test eax, SIZE_LONG_STATE
-                    jz out_int32
-; not implemented yet
-.out_uint:          jmp .continue
+                    jz out32
+                    jmp out64
+
+
+section .rodata
+
+;; possible remainders occuring during 64-bit division to 10
+rem_table           db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+                    db 0, 1, 2, 3

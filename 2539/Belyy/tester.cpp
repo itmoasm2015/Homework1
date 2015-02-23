@@ -1,5 +1,9 @@
 #include <hw1.h>
-#include <stdio.h>
+
+#include <cstdio>
+#include <limits>
+
+using namespace std;
 
 int main() {
     char out[256];
@@ -7,12 +11,15 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "%0+5d\n", 51);
     printf("%s", out);
-    hw_sprintf(out, "<%8d=%-8d>\n", 1234, 5678);
+    hw_sprintf(out, "<%12u=%-12i>\n", 1234, numeric_limits<int>::min());
     printf("%s", out);
-    // TODO : fix
-    //hw_sprintf(out, "%d\n", -1);
-    //printf("%s", out);
-    hw_sprintf(out, "%wtf\n");
+    hw_sprintf(out, "<%12i=%-12u>\n", -1, -1);
+    printf("%s", out);
+    hw_sprintf(out, "%llu\n", (long long)-2);
+    printf("%s", out);
+    hw_sprintf(out, "%lli\n", (long long)-1);
+    printf("%s", out);
+    hw_sprintf(out, "%wtf\n", 1, 2, 3, 4);
     printf("%s", out);
     hw_sprintf(out, "50%%\n");
     printf("%s", out);
