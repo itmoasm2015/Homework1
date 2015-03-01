@@ -13,11 +13,10 @@ hw_sprintf:
     sub     esp, 12
 
     ;flags = 0
-    mov     al, byte 0
-    mov     byte [flag], al
-    ;width = 0
     mov     ecx, 0
-    mov     dword [width], ecx
+    mov     byte [flag], byte 0
+    ;width = 0
+    mov     dword [width], 0
     ;buffer set 0
 .pre_zeroing_buffer:
     mov     byte [buffer + ecx], ch; ecx < 20 so ch = 0    
@@ -47,8 +46,7 @@ hw_sprintf:
 
 
 
-.percent_processing:
-    
+.percent_processing:    
     mov     ah, [esi]
     inc     esi
 
@@ -59,7 +57,6 @@ hw_sprintf:
     ;there is print argument
 
     ;check '+', '-', ' ', '0' and write in flags 
-    
     cmp     ah, '+'
     jne     .not_sign
     or      byte [flag], byte 8
@@ -84,15 +81,15 @@ hw_sprintf:
     jmp     .percent_processing
 .not_zero_complement:
 
+
+    ;width reading if first symbol is a digit
     cmp     ah, '1'
     jl      .not_width
     cmp     ah, '9'
     jg      .not_width
 
-    ;width reading
 .width_reading_loop:    
     ;every time width = width * 10 + current_symol - '0'
-    mov     ecx, 0;??????????????????????????????????????????????????????
     mov     cl, ah
     sub     cl, '0'
     mov     eax, 10
@@ -131,13 +128,21 @@ hw_sprintf:
     cmp     ah, 'u'
     je      .write_unsigned_number
 
-
-
-    ;else there is '%'* well then write '%'*
+    ;else there is '%'* well then write '%'*    
+    ;we need to write all symbols after % which we read
+    ;so we jump to symbol next to '%' and write '%'
+.find_procent:
+    dec     esi
     mov     al, '%'
-    mov     [edi], al
+    cmp     [esi], al
+    jne     .find_procent
+
+    mov     [edi], byte '%'
+    mov     ah, [edi]
     inc     edi
-    jmp     .write_current
+    inc     esi
+
+    jmp     .end
 
 
 .write_number:
@@ -169,8 +174,8 @@ hw_sprintf:
     jz      .unsigned_long_long
     
     sub     edx, 1
-    cmp    edx, 0xffffffff
-    jne    .no_dec1    
+    cmp     edx, 0xffffffff
+    jne     .no_dec1    
     sub     eax, 1
 .no_dec1:    
     not     edx
@@ -449,9 +454,14 @@ hw_sprintf:
 
 section .bss
 buffer:       resb 20
-flag:         resb 1;0 %minus% %unsigned% %long long% %sign% %space% %left_align% %zero_complement%
+flag:         resb 1
+;flag tests:
+;1 - zero complement
+;2 - left aling
+;4 - space
+;8 - sign
+;16 - long long
+;32 - unsigned
+;64 - minus
 width:        resd 1
 argument:     resd 1
-
-;to do:
-;long long

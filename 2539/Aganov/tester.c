@@ -62,6 +62,11 @@ int main() {
        sprintf(out2, format, a, b, c, d, e, f);
     check();
 
+  format = "23456789%wtf";
+    hw_sprintf(out1, format, a, b, c, d, e, f);
+       sprintf(out2, format, a, b, c, d, e, f);
+    check();
+
 	format = "%wtf 50%% %%%%%%%% %";
     hw_sprintf(out1, format, a, b, c, d, e, f);
        sprintf(out2, format, a, b, c, d, e, f);
@@ -150,7 +155,16 @@ int main() {
        sprintf(out2, format, la, lb, lc, ld, le, lf, lg);
     check();    
 
-    printf("%i/%i tests not passed\n%i/%i tests OK\n", errors, errors + passes, passes, errors + passes);
 
+
+    format = "%+10-0000d";
+    a = 1, b = -1, c = -33, d = -400000, e = 0, f = -60;
+    hw_sprintf(out1, format, a, b, c, d, e, f);
+       sprintf(out2, format, a, b, c, d, e, f);
+    check();    
+
+
+
+    printf("%i/%i tests not passed\n%i/%i tests OK\n", errors, errors + passes, passes, errors + passes);
     return 0;
 }
