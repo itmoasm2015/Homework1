@@ -13,6 +13,9 @@ SIZE_LONG_STATE     equ     1 << 13         ; is number 64-bit?
 UNSIGNED_STATE      equ     1 << 14         ; is number unsigned?
 INTERN_SIGN_STATE   equ     1 << 15         ; (internal) true if number
                                             ; is signed and > 0
+WIDTH_SET           equ     1
+SIZE_SET            equ     3
+
 
 ; helper subroutines of hw_sprintf
 
@@ -30,9 +33,10 @@ hw_atoi:            xor ebx, ebx
                     sub bl, '0'
                     inc esi
                     cmp byte [esi], '0'
-                    jl hw_sprintf.read_format
+                    jl .done
                     cmp byte [esi], '9'
                     jle .convert_to_int
+.done:              mov edx, WIDTH_SET
                     jmp hw_sprintf.read_format
 
 
@@ -92,12 +96,8 @@ out32:              push eax                ; save STATE and WIDTH vars
                     test dword [esp + 8], FLAG_MINUS_STATE
                     jnz out_right_spaces    ; output right spaces, if needed
                     add esp, 4
-.finally:           add esp, 4
-                    add ebp, 4              ; EBP = next(...)
-                    pop eax
-                    xor ah, ah              ; clear STATE and WIDTH vars
-                    xor ebx, ebx            ; and return to hw_sprintf()
-                    jmp hw_sprintf.continue
+.finally:           add ebp, 4              ; EBP = next(...)
+                    jmp out_cleanup
 
 .convert_to_uint:   neg ecx
                     mov [ebp], ecx
@@ -182,12 +182,8 @@ out64:              push eax                ; looks similar to out32,
                     test dword [esp + 8], FLAG_MINUS_STATE
                     jnz out_right_spaces    ; output right spaces, if needed
                     add esp, 4
-.finally:           add esp, 4
-                    add ebp, 8              ; EBP = next(...)
-                    pop eax
-                    xor ah, ah              ; clear STATE and WIDTH vars
-                    xor ebx, ebx            ; and return to hw_sprintf()
-                    jmp hw_sprintf.continue
+.finally:           add ebp, 8              ; EBP = next(...)
+                    jmp out_cleanup
 
 .convert_to_uint:   neg edx                 ; negate (EDX:EAX)
                     neg eax
@@ -270,6 +266,13 @@ out_space:          mov byte [edi], ' '
                     inc edi
                     ret
 
+out_cleanup:        add esp, 4
+                    pop eax
+                    xor ah, ah              ; clear STATE and WIDTH vars
+                    xor ebx, ebx            ; and return to hw_sprintf()
+                    xor edx, edx
+                    jmp hw_sprintf.continue
+
 
 ; void hw_sprintf(char * out, const char * format, ...)
 ;
@@ -279,8 +282,8 @@ out_space:          mov byte [edi], ' '
 ; uses:
 ;   EAX - state variable (flags, size and cur char)
 ;   EBX - integer width
-;   ECX - temporary variable 1
-;   EDX - temporary variable 2
+;   ECX - pointer to the beginning of control sequence
+;   EDX - progress variable (what parts of control seq have been read)
 ;   EBP - pointer to cur stack arg
 hw_sprintf:         push ebp
                     push esi
@@ -291,11 +294,16 @@ hw_sprintf:         push ebp
                     lea ebp, [esp + 28]     ; ebp = head(...)
                     xor eax, eax            ; state = 0
                     xor ebx, ebx            ; width = 0
+                    xor edx, edx            ; progress = 0
 .read_format:       mov al, byte [esi]
                     cmp al, '%'
                     jne .not_percent
 ;; if CONTROL_FLAG bit is set, reset it and vice versa
-                    xor eax, CONTROL_FLAG_STATE
+                    test eax, CONTROL_FLAG_STATE
+                    jnz .out_char
+                    or eax, CONTROL_FLAG_STATE
+                    mov ecx, esi
+                    jmp .continue
 .not_percent:       test eax, CONTROL_FLAG_STATE
                     jz .out_char
                     cmp al, '+'             ; consider all possible control chars
@@ -315,8 +323,7 @@ hw_sprintf:         push ebp
                     cmp al, '0'
                     je .set_zero
                     jg .maybe_read_width
-.maybe_continue:    cmp al, '%'
-                    jne .out_malformed
+                    jmp .out_malformed
 .continue:          test al, al
                     je .finally
                     inc esi
@@ -328,40 +335,54 @@ hw_sprintf:         push ebp
                     ret
 
 ; output non-control chars as-is
-.out_char:          mov [edi], al
+.out_char:          xor ah, ah
+                    mov [edi], al
                     inc edi
                     jmp .continue
 
-.set_plus:          or eax, FLAG_PLUS_STATE
+.set_plus:          test edx, WIDTH_SET
+                    jnz .out_malformed
+                    or eax, FLAG_PLUS_STATE
                     jmp .continue
 
-.set_space:         or eax, FLAG_SPACE_STATE
+.set_space:         test edx, WIDTH_SET
+                    jnz .out_malformed
+                    or eax, FLAG_SPACE_STATE
                     jmp .continue
 
-.set_minus:         or eax, FLAG_MINUS_STATE
+.set_minus:         test edx, WIDTH_SET
+                    jnz .out_malformed
+                    or eax, FLAG_MINUS_STATE
                     jmp .continue
 
-.set_zero:          or eax, FLAG_ZERO_STATE
+.set_zero:          test edx, WIDTH_SET
+                    jnz .out_malformed
+                    or eax, FLAG_ZERO_STATE
                     jmp .continue
 
-.maybe_set_long:    lea edx, [esi + 1]
-                    cmp byte [edx], 'l'
-                    jne .out_char
+.maybe_set_long:    inc esi
+                    cmp byte [esi], 'l'
+                    jne .out_malformed
                     or eax, SIZE_LONG_STATE
-                    inc esi
+                    mov edx, SIZE_SET
                     jmp .continue
 
 .maybe_read_width:  cmp al, '9'
-                    jg .maybe_continue
+                    jg .out_malformed
+                    cmp edx, SIZE_SET
+                    je .out_malformed
                     jmp hw_atoi
 
 ; output malformed control chars as-is
-.out_malformed:     mov byte [edi], '%'
+.out_malformed:     mov dl, [ecx]
+                    mov [edi], dl
+                    inc ecx
                     inc edi
-                    mov [edi], al
-                    inc edi
+                    cmp ecx, esi
+                    jbe .out_malformed
                     xor ah, ah
                     xor ebx, ebx
+                    xor edx, edx
                     jmp .continue
 
 .out_uint:          or eax, UNSIGNED_STATE

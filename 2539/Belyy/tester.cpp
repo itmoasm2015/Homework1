@@ -25,9 +25,21 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "%%%d\n", 123);
     printf("%s", out);
-    hw_sprintf(out, "%50%=\n");
+    hw_sprintf(out, "%-10%=\n");
     printf("%s", out);
-    hw_sprintf(out, "%");
+    hw_sprintf(out, "%50-%=\n");
+    printf("%s", out);
+    hw_sprintf(out, "%+10-0000d\n", 123);
+    printf("%s", out);
+    hw_sprintf(out, "%10lld\n", (long long) 123);
+    printf("%s", out);
+    hw_sprintf(out, "%ll10d\n", (long long) 123);
+    printf("%s", out);
+    hw_sprintf(out, "%ll%d\n", (long long) 123);
+    printf("%s", out);
+    sprintf(out, "%ll%d\n", (long long) 123);
+    printf("%s", out);
+    hw_sprintf(out, "%+-010d=\n", 123);
     printf("%s", out);
     return 0;
 }
