@@ -4,13 +4,19 @@ section .text
 
 ; void hw_sprintf(char* out, char const *format, ...)
 hw_sprintf:
+    ;eax, ecx, edx are saved by caller
+    push    ebx
+    push    edi
+    push    esi
+    push    ebp
+
 
     ;edi - out, esi - format, argument - pointer to the first argument
-    mov     edi, [esp + 4]
-    mov     esi, [esp + 8]
-    add     esp, 12
+    mov     edi, [esp + 20]
+    mov     esi, [esp + 24]
+    add     esp, 28
     mov     dword [argument], esp
-    sub     esp, 12
+    sub     esp, 28
 
     ;flags = 0
     mov     ecx, 0
@@ -42,6 +48,10 @@ hw_sprintf:
     cmp     ah, 0
     jne     .parser
     ;function is done
+    pop     ebp
+    pop     esi
+    pop     edi
+    pop     ebx
     ret
 
 
@@ -190,12 +200,12 @@ hw_sprintf:
     ;current number is (eax << 32) + edx
     ;quotient will be also (eax << 32) + edx
     ;module will be ebx
-    push ebp
-    push ecx
+    push    ebp
+    push    ecx
     jmp     .div10_long_long
 .end_div10_long_long:
-    pop ecx
-    pop ebp
+    pop     ecx
+    pop     ebp
     add     bl, '0'
     mov     byte [buffer + ecx], bl
     inc     ecx
