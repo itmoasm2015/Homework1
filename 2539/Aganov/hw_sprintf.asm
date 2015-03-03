@@ -64,31 +64,38 @@ hw_sprintf:
     cmp     ah, '%'
     je     .write_current
 
-    ;there is print argument
+    jmp     .check_flags
 
+    
+    ;we already got % later
+.percent_processing_continue:
+    mov     ah, [esi]
+    inc     esi
+
+.check_flags:
     ;check '+', '-', ' ', '0' and write in flags 
     cmp     ah, '+'
     jne     .not_sign
     or      byte [flag], byte 8
-    jmp     .percent_processing
+    jmp     .percent_processing_continue
 .not_sign:
 
     cmp     ah, ' '
     jne      .not_space
     or      byte [flag], byte 4
-    jmp     .percent_processing
+    jmp     .percent_processing_continue
 .not_space:
 
     cmp     ah, '-'
     jne      .not_left_align
     or      byte [flag], byte 2
-    jmp     .percent_processing
+    jmp     .percent_processing_continue
 .not_left_align:
 
     cmp     ah, '0'
     jne      .not_zero_complement
     or      byte [flag], byte 1
-    jmp     .percent_processing
+    jmp     .percent_processing_continue
 .not_zero_complement:
 
 
@@ -121,7 +128,8 @@ hw_sprintf:
     mov     ah, [esi]
     inc     esi
     cmp     ah, 'l'    
-    jne     .end
+    ;jne     .end;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    jne     .start_finding_procent
     or      byte [flag], byte 16
     mov     ah, [esi]
     inc     esi
@@ -141,6 +149,10 @@ hw_sprintf:
     ;else there is '%'* well then write '%'*    
     ;we need to write all symbols after % which we read
     ;so we jump to symbol next to '%' and write '%'
+
+    ;dec because current symbol can be '%'
+.start_finding_procent:
+    dec     esi
 .find_procent:
     dec     esi
     mov     al, '%'
@@ -152,8 +164,7 @@ hw_sprintf:
     inc     edi
     inc     esi
 
-    jmp     .end
-
+    jmp     .end_percent_processing
 
 .write_number:
     ;writing number

@@ -15,7 +15,7 @@
 
 char out1[100000];
 char out2[100000];
-char* format;
+char* format, *out3;
 int errors;
 int passes;
 
@@ -33,6 +33,22 @@ int check() {
 	//printf("ok:%s\n", out1);
 	passes++;
 	return 0;
+}
+
+int check_out3() {
+  for (int i = 0; ;i++) {
+    if (out1[i] != out3[i]) {
+      printf("WA:\n your:%s\nright:%s\n", out1, out3);
+      errors++;
+      return 1;
+    }
+    if (out1[i] == 0) {
+      break;
+    }
+  }
+  //printf("ok:%s\n", out1);
+  passes++;
+  return 0;
 }
 
 int main() {
@@ -161,8 +177,25 @@ int main() {
     a = 1, b = -1, c = -33, d = -400000, e = 0, f = -60;
     hw_sprintf(out1, format, a, b, c, d, e, f);
        sprintf(out2, format, a, b, c, d, e, f);
-    check();    
+    check();
 
+    format = "%0%d";
+    out3 = "%01";
+    a = 1, b = -1, c = -33, d = -400000, e = 0, f = -60;
+    hw_sprintf(out1, format, a, b, c, d, e, f);
+    check_out3();        
+
+    format = "% l%d";
+    out3 = "% l1";
+    a = 1, b = -1, c = -33, d = -400000, e = 0, f = -60;
+    hw_sprintf(out1, format, a, b, c, d, e, f);
+    check_out3();
+
+    format = "%11 %d  %+%d   % %d   %-%d   %ll%d %123%d";
+    out3 = "%11 1  %+2   % 3   %-4   %ll5 %1236";
+    a = 1, b = 2, c = 3, d = 4, e = 5, f = 6;
+    hw_sprintf(out1, format, a, b, c, d, e, f);
+    check_out3();
 
 
     printf("%i/%i tests not passed\n%i/%i tests OK\n", errors, errors + passes, passes, errors + passes);
