@@ -4,10 +4,10 @@ CFLAGS = -m32 -g -L. -I../../include
 all: tests
 
 tests: libhw.a tests.o
-	gcc -o tests $(CFLAGS) tests.o -lhw
+	g++ -o tests $(CFLAGS) tests.o -lhw
 
-tests.o: tests.c
-	gcc -o tests.o $(CFLAGS) -c tests.c
+tests.o: tests.cpp
+	g++ -o tests.o $(CFLAGS) -c tests.cpp
 
 libhw.a: libhw.o
 	ar rcs libhw.a libhw.o
