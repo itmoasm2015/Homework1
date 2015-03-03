@@ -20,9 +20,6 @@ hw_sprintf:
         push            edi
         push            ebp
 
-        mov             ebx, 0
-        mov             [need_nearest_ll], bl
-
         mov             ebx, [esp + 20]
         mov             [osp], ebx              ; out string pointer
         mov             esi, [esp + 24] ; format string pointer
@@ -41,20 +38,6 @@ lexA:
         cmp             byte [esi], '%'
         jz              lexB
 
-        mov             ebx, [need_nearest_ll]
-        cmp             ebx, 1
-        jnz             .all_ok_with_ll
-        cmp             byte [esi], 'l'
-        jnz             .all_ok_with_ll
-        cmp             byte [esi + 1], 'l'
-        jnz             .all_ok_with_ll
-        
-        add             esi, 2
-        mov             ebx, 0
-        mov             [need_nearest_ll], ebx
-        jmp             lexA
-
-.all_ok_with_ll:
         mov             ebx, [osp]
         xor             eax, eax
         mov             al, [esi]
@@ -164,19 +147,10 @@ lexB:
         jmp             lexA
 
 .bad_flags:     
-        mov             ebx, 0
-        mov             [need_nearest_ll], ebx
-        test            edx, FLAG_LONG
-        jz              .no_bad_ll
-        mov             ebx, 1
-        mov             [need_nearest_ll], ebx
-.no_bad_ll:
-
         mov             edx, [osp]
         mov             ebx, '%'
         mov             [edx], bl
         inc             edx
-        inc             esi
         mov             [osp], edx
         pop             esi
         jmp             lexA
@@ -451,4 +425,3 @@ section .bss
         tmp:            resd 1
         return_adress:  resd 1
         tmp1:           resd 1
-        need_nearest_ll: resd 1
