@@ -128,7 +128,6 @@ hw_sprintf:
     mov     ah, [esi]
     inc     esi
     cmp     ah, 'l'    
-    ;jne     .end;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     jne     .start_finding_procent
     or      byte [flag], byte 16
     mov     ah, [esi]
