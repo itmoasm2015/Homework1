@@ -1,6 +1,7 @@
 #include "hw1.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define TEST(count, total, format, ...) { \
     char str[1000], str2[1000]; \
@@ -50,6 +51,11 @@ int main() {
     for(int i = 0; i < 5000000; i++) {
         hw_sprintf(dest_str, "%030lli %030lli %-30i %-30i", (long long) i, 0x0fffffffffffffffll, i, -i);
     }
+    
+    char* bs = (char*) malloc(1000000);
+    hw_sprintf(bs, "%0999999i", 1);
+    printf("long len %d\n", strlen(bs));
+    free(bs);
     
     return 0;
 }

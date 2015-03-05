@@ -402,7 +402,7 @@ hw_sprintf:
     jl .no_width
     
     cmp dl, '9'
-    jl .width_loop
+    jle .width_loop
     
 .no_width:
     cmp dl, 'l'
@@ -456,7 +456,6 @@ hw_sprintf:
 ; 'subroutine': prepare for output and actually do output
 .prepare_output
     add esp, 4 ; pop esi
-    and ecx, 0xffff
     
     sub esp, MAX_NUMBER_LEN
     
