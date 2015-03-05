@@ -1,16 +1,10 @@
-global _hw_sprintf
-
-extern _printf
+global hw_sprintf
 
 %define FLAG_ZERO  1
 %define FLAG_PLUS  2
 %define FLAG_MINUS 4
 %define FLAG_SPACE 8
-%define FLAG_LONG  16
-%define FLAG_WIDTH 32
-
-section .data
-    width: dd 0
+%define FLAG_LONG 16
 
 section .text
 
@@ -139,9 +133,7 @@ section .text
 
     ; main function, strcpy now
     ; hw_sprintf(char* out, const char* format, ...) 
-    _hw_sprintf:
-
-    mov dword [width], 0
+    hw_sprintf:
 
     ; all registers: eax, ebx, ecx, edx, esi, edi
     ; cdecl declare callee need to save ebx, esi, edi
@@ -161,13 +153,8 @@ section .text
     xor ch, ch  ; state of reading format token, initially 0, no flags
     inc edx 
     
-    ; case cl of '0', '+', '-', ' ', 'l', 'u', 'd', '%', '1'..'9'
     .parse_percent:
     mov cl, byte [edx]
-    
-    test ch, FLAG_WIDTH
-    jnz .after_width
-    
     cmp cl, '0'
     je .zero_flag
     cmp cl, '+'
@@ -176,21 +163,14 @@ section .text
     je .minus_flag
     cmp cl, ' '
     je .space_flag
-    cmp cl, '%'
-    je .second_percent
-    
-    cmp cl, '1'
-    jl .after_width
-    cmp cl, '9'
-    jle .read_width
-    
-    .after_width:
     cmp cl, 'l'
     je .first_l
     cmp cl, 'u'
     je .unsigned
     cmp cl, 'd'
     je .signed
+    cmp cl, '%'
+    je .second_percent
     
     .incorrect_format:
     pop edx ; restore position before 
@@ -198,43 +178,7 @@ section .text
     inc edx
     inc eax
     jmp .main_loop
-  
-    .read_width:
-    mov dword [width], 0
-    .width_loop: 
-        mov cl, byte [edx]
-        cmp cl, '0'
-        jl .after_width_loop
-        cmp cl, '9'
-        jg .after_width_loop
-        inc edx
-
-        push eax
-        push edx
-        push ecx
-        
-        xor edx, edx
-        mov eax, dword [width]
-        mov ecx, 10
-        mul ecx
-        
-        pop ecx
-        push ecx
-        sub cl, '0'
-        mov edx, ecx
-        and edx, 0x000000FF
-        add eax, edx
-                
-        mov dword [width], eax   
-                                                                        
-        pop ecx
-        pop edx
-        pop eax
-        jmp .width_loop
-    .after_width_loop:
-    or ch, FLAG_WIDTH
-    jmp .parse_percent
-        
+    
     .zero_flag:
     or ch, FLAG_ZERO
     jmp .after_symbol
@@ -280,7 +224,7 @@ section .text
     ; print(number, width, number_width)
     ; fourth argument passed as eax /fastcall/
     push edi         ; number_width
-    push dword [width] ; width
+    push 5  ;TODO    ; width
     push dword [esi] ; number 
     call print_unsigned
     add esp, 12
@@ -290,7 +234,7 @@ section .text
     pop edx
     add esi, 4 ; go to next vararg
     jmp .after_terminal
-      
+    
     .second_percent:
     mov byte [eax], '%'
     inc eax
@@ -317,3 +261,4 @@ section .text
     pop ebx 
         
     ret
+
