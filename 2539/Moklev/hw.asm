@@ -8,6 +8,7 @@ extern _printf
 %define FLAG_SPACE 8
 %define FLAG_LONG  16
 %define FLAG_WIDTH 32
+%define FLAG_SIGN  64
 
 section .data
     width: dd 0
@@ -20,8 +21,23 @@ section .text
     
     xor ebx, ebx
     mov eax, dword [esp + 8]
+    
+    mov cl, '+'
+    test eax, 0x80000000 ; 100...0b 
+    jz .after_change_sign 
+    test ch, FLAG_SIGN
+    jz .after_change_sign
+    mov cl, '-' 
+    not eax ; from two's complement 
+    inc eax ; to absolute value 
+    
+    .after_change_sign:
     test ch, FLAG_PLUS + FLAG_SPACE
-    jz .after_inc
+    jnz .to_inc
+    cmp cl, '-'
+    je .to_inc
+    jmp .after_inc
+    .to_inc:
     inc ebx ; result + 1 if sign '+' prints
     .after_inc:
     mov ecx, 10 ; div 10 
@@ -50,6 +66,17 @@ section .text
     jge .continue
     mov ebx, dword [esp + 20]
     .continue:
+    mov cl, '+'
+    test eax, 0x80000000 ; 100....0b 
+    jz .after_change_sign 
+    test ch, FLAG_SIGN
+    jz .after_change_sign
+    mov cl, '-'
+ 
+    not eax ; from two's complement 
+    inc eax ; to absolute value
+    
+    .after_change_sign:
     push ecx
     test ch, FLAG_MINUS
     jz .else_minus
@@ -95,8 +122,12 @@ section .text
     pop ecx
     test ch, FLAG_PLUS
     push ecx
-    jz .after_sign
-    mov byte [esi], '+'
+    jnz .set_sign
+    cmp cl, '-'
+    je .set_sign
+    jmp .after_sign
+    .set_sign:
+    mov byte [esi], cl
     dec esi
 
     .after_sign:
@@ -122,12 +153,17 @@ section .text
     dec esi
     
     .after_space:
+    
     pop ecx
     test ch, FLAG_PLUS
     push ecx
-    jz .after_loop
+    jnz .set_sign_after
+    cmp cl, '-'
+    je .set_sign_after
+    jmp .after_loop
+    .set_sign_after:
     inc esi
-    mov byte [esi], '+'
+    mov byte [esi], cl
     dec esi
 
     .after_loop:
@@ -296,8 +332,40 @@ section .text
     inc eax
     jmp .after_terminal 
    
-    .signed:
+    .signed: 
+    ; ------- copypaste --------- ;
     
+    or ch, FLAG_SIGN
+    
+    push edx
+    push esi
+    push ecx
+    push eax
+    ; call count_unsigned_length
+    push dword [esi] ; vararg agrument
+    call count_unsigned_length ; <------------------------------------------ TOFIX
+    add esp, 4
+    mov edi, eax ; return value of count_unsigned_length
+    pop eax      ; restore eax value
+    pop ecx
+    push ecx
+    ; call print_unsigned
+    ; print(number, width, number_width)
+    ; fourth argument passed as eax /fastcall/
+    push edi         ; number_width
+    push dword [width] ; width
+    push dword [esi] ; number 
+    call print_unsigned
+    add esp, 12
+    ; eax is like a return value, it should be equal to it's value after [print_unsigned] call
+    pop ecx
+    pop esi
+    pop edx
+    add esi, 4 ; go to next vararg
+    jmp .after_terminal
+    
+    ; ------- copypaste --------- ;
+     
     .after_terminal: ; after d, u, and %
     add esp, 4
     inc edx
