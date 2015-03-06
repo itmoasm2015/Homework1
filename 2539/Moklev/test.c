@@ -15,10 +15,13 @@ int compare(const char * a, const char * b)
 }
 
 int verbose = 0;
+int count_test = 0;
+int passed = 0;
 
-int test(const char* s, int aa, int bb, int cc)
+int test(const char* s, long long aa, long long bb, long long cc)
 {
     char a[1000], b[1000];
+    count_test++;
 
     hw_sprintf(a, s, aa, bb, cc);
     sprintf(b, s, aa, bb, cc);
@@ -28,6 +31,7 @@ int test(const char* s, int aa, int bb, int cc)
         //else 
         //    printf("FAILED\n");
     } else {
+        passed++;
         if (verbose)
             printf("Test OK:     \n%s\n\n", a);
         else
@@ -35,9 +39,10 @@ int test(const char* s, int aa, int bb, int cc)
     }
 }
 
-int expect(const char* ex, const char * s, int aa, int bb, int cc) 
+int expect(const char* ex, const char * s, long long aa, long long bb, long long cc) 
 {
     char a[1000];
+    count_test++;
     
     hw_sprintf(a, s, aa, bb, cc);
     if (compare(a, ex) == 0) {
@@ -46,6 +51,7 @@ int expect(const char* ex, const char * s, int aa, int bb, int cc)
         //else 
         //    printf("FAILED\n");
     } else {
+        passed++;
         if (verbose)
             printf("Test OK:     \n%s\n\n", a);
         else
@@ -56,8 +62,8 @@ int expect(const char* ex, const char * s, int aa, int bb, int cc)
 int main()
 {
 
-    test("lalka: %0+24u ololo", 42, 0, 0);
     expect("lalka: %0+24-llu ololo", "lalka: %0+24-llu ololo", 42, 0, 0);
+    test("lalka: %0+24u ololo", 42, 0, 0);
     test("lalka: %0% ololo", 42, 0, 0);
     test("lalka: %u ololo", 69, 0, 0);
     test("lalka: %+u ololo", 78, 0, 0);
@@ -72,7 +78,7 @@ int main()
     test("lalka: %d ololo", -42, 0, 0);
     test("lalka: %d ololo", 0x80000000, 0, 0);
     test("lalka: %+d ololo", -42, 0, 0);    
-     test("lalka: %0+24d ololo", 42, 0, 0);
+    test("lalka: %0+24d ololo", 42, 0, 0);
     test("lalka: %0% ololo", 42, 0, 0);
     test("lalka: %d ololo", 69, 0, 0);
     test("lalka: %+d ololo", 78, 0, 0);
@@ -84,6 +90,10 @@ int main()
     test("lalka: %-d=%d ololo", -12, -54, 0);
     test("lalka: % d ololo", -12, 0, 0);
     test("lalka: % 0d%% ololo", -12, 0, 0);
+    test("lalka: %20d%% ololo", -12, 0, 0);
+    test("lalka: % 0llu%% ololo", -1, 0, 0);
+    
+    printf("%d / %d tests passed", passed, count_test);
 
     return 0;
 }
