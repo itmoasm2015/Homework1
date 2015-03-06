@@ -15,11 +15,9 @@ section .data
 
 section .text
 
-    count_unsigned_length:
+    count_length:
     
     push ebx
-    
-    ; ----- safe edx zone ----- ;
     
     xor ebx, ebx
     mov eax, dword [esp + 8]
@@ -88,23 +86,13 @@ section .text
     jne .loop
     mov eax, esi
     
-    ;.loop:
-    ;xor edx, edx
-    ;div ecx
-    ;inc ebx
-    ;cmp eax, 0
-    ;jne .loop
-    ;mov eax, ebx
-    
-    
-    
     pop esi
     pop ebx
     
     ret
 
-    ; print_unsigned(number, width, number_width)
-    print_unsigned:
+    ; print_number(number, width, number_width)
+    print_number:
     push ebx
     push eax
     mov esi, eax ; char* out
@@ -305,7 +293,6 @@ section .text
     je .minus_flag
     cmp cl, ' '
     je .space_flag
-    
     cmp cl, '1'
     jl .after_width
     cmp cl, '9'
@@ -401,7 +388,7 @@ section .text
     push esi
     push ecx
     push eax
-    ; call count_unsigned_length
+    ; call count_length
     test ch, FLAG_LONG
     jz .32bit_l
     .64bit_l:
@@ -412,13 +399,13 @@ section .text
     push dword 0     ; high half of number is 0
     push dword [esi] ; number 
     .after_bit_l:
-    call count_unsigned_length 
+    call count_length 
     add esp, 8
-    mov edi, eax ; return value of count_unsigned_length
+    mov edi, eax ; return value of count_length
     pop eax      ; restore eax value
     pop ecx
     push ecx
-    ; call print_unsigned
+    ; call print_number
     ; print(number, width, number_width)
     ; fourth argument passed as eax /fastcall/
     push edi         ; number_width
@@ -433,9 +420,9 @@ section .text
     push dword 0     ; high half of number is 0
     push dword [esi] ; number 
     .after_bit:
-    call print_unsigned
+    call print_number
     add esp, 16
-    ; eax is like a return value, it should be equal to it's value after [print_unsigned] call
+    ; eax is like a return value, it should be equal to it's value after [print_number] call
     pop ecx
     pop esi
     pop edx

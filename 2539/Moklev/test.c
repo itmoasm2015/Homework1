@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 void hw_sprintf(char *out, char const *format, ...);
 
@@ -83,7 +84,7 @@ int expect(const char* ex, const char * s, unsigned long long aa, unsigned long 
 int main() {
 
     
-            
+    int time1;            
     int a = 0, b = 0;    
     
         expect("lalka: %0+24-llu ololo", "lalka: %0+24-llu ololo", 42, 0, 0);
@@ -144,8 +145,9 @@ int main() {
     }
     
     printf("%d / %d tests passed\n", a, b);
-    
-    /*printf("time to wait\n");
+    time1 = clock();
+        
+    printf("time to wait\n");
     char dest_str[500];
     for(int i = 0; i < 5000000; i++) {
         hw_sprintf(dest_str, "%030lli %030lli %-30i %-30i", (long long) i, 0x0fffffffffffffffll, i, -i);
@@ -153,8 +155,8 @@ int main() {
     
     char* bs = (char*) malloc(1000000);
     hw_sprintf(bs, "%0999999i", 1);
-    printf("long len %d\n", strlen(bs));
-    free(bs);*/
+    printf("time: %d\n", (clock() - time1) / (CLOCKS_PER_SEC / 1000));
+    free(bs);
     
     return 0;
 }
