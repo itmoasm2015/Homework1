@@ -1,5 +1,7 @@
-#include "hw1.h"
+//#include "hw1.h"
 #include <cstdio>
+
+void hw_sprintf(char *out, char const *format, ...);
 
 int main() 
 {
