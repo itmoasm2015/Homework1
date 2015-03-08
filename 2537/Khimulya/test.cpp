@@ -26,12 +26,8 @@ int main(int argc, char *argv[]) {
     char *buffer = new char[BUFFER_SIZE];
     char *hw_buffer = new char[BUFFER_SIZE];
 
-    hw_sprintf(hw_buffer, "%d", 2147483648);
-    sprintf(buffer, "%d", 2147483648);
-    test(hw_buffer, buffer, verbose);
-
-    hw_sprintf(hw_buffer, "%d", -2147483648);
-    sprintf(buffer, "%d", -2147483648);
+    hw_sprintf(hw_buffer, "%d == %d", 2147483648, -2147483648);
+    sprintf(buffer, "%d == %d", 2147483648, -2147483648);
     test(hw_buffer, buffer, verbose);
 
     hw_sprintf(hw_buffer, "%ud", 2147483648);
@@ -46,7 +42,13 @@ int main(int argc, char *argv[]) {
     sprintf(buffer, "%u", -1);
     test(hw_buffer, buffer, verbose);
 
+    hw_sprintf(hw_buffer, "%01u", -1);
+    sprintf(buffer, "%01u", -1);
+    test(hw_buffer, buffer, verbose);
 
+    hw_sprintf(hw_buffer, "%01-u", -1);
+    sprintf(buffer, "%01-u", -1);
+    test(hw_buffer, buffer, verbose);
 
 	return 0;
 }

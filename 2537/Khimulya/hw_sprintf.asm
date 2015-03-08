@@ -110,6 +110,8 @@ section .text
         mov dl, byte [ecx]
         cmp edx, '+'
         je .plus
+        cmp edx, '-'
+        je .minus
         cmp edx, ' '
         je .space
         cmp edx, '0'
