@@ -54,5 +54,45 @@ int main(int argc, char *argv[]) {
     sprintf(buffer, "%%%d", 0);
     test(hw_buffer, buffer, verbose);
 
+    hw_sprintf(hw_buffer, "% d % d", 100, -100);
+    sprintf(buffer, "% d % d", 100, -100);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "% d %+d", 100, 100);
+    sprintf(buffer, "% d %+d", 100, 100);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "% d %+ d", 100, 100);
+    sprintf(buffer, "% d %+ d", 100, 100);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%10d %010u", 0, 111);
+    sprintf(buffer, "%10d %010u", 0, 111);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%10d %-10u", 0, 111);
+    sprintf(buffer, "%10d %-10u", 0, 111);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%2d %3d", -1, -1);
+    sprintf(buffer, "%2d %3d", -1, -1);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "% -5d", 100);
+    sprintf(buffer, "% -5d", 100);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%2d %03d", -1, -1);
+    sprintf(buffer, "%2d %03d", -1, -1);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%2d % 04d", -1, -1);
+    sprintf(buffer, "%2d % 04d", -1, -1);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "% 4d % 4d", -1, 1);
+    sprintf(buffer, "% 4d % 4d", -1, 1);
+    test(hw_buffer, buffer, verbose);
+
 	return 0;
 }

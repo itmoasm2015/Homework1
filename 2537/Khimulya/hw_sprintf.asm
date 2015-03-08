@@ -6,9 +6,9 @@ section .text
     ; should current symbol be processed as a part of number format sequence
     FORMAT_SEQUENCE    equ    1
     ; add plus symbol to non-negative numbers
-    ALWAYS_PLUS        equ    1 << 2
+    PLACE_PLUS        equ    1 << 2
     ; place space at first position if there's no sign
-    FIRST_SPACE        equ    1 << 3
+    PLACE_SPACE        equ    1 << 3
     ; align number to left side
     ALIGN_LEFT     equ        1 << 4
     ; extend number to required size by adding zeros
@@ -19,6 +19,14 @@ section .text
     FLAG_UNSIGNED      equ    1 << 7
     ; have flags read?
     FLAGS_ENDED        equ    1 << 8
+    ; should we fill string to reach minimal number width?
+    FILL               equ    1 << 9
+    ; do we have to place following symbols?
+    PLUS               equ    1 << 10
+    MINUS              equ    1 << 11
+    SPACE              equ    1 << 12
+    ; if one symbol was written directly to out
+    DEC_COUNT          equ    1 << 13
 
     ; converts number to string
     ;
@@ -31,20 +39,48 @@ section .text
     itoa:
         push edx
         push ecx
-
-        test eax, FLAG_UNSIGNED
-        jnz .to_decimal_str
-        test edi, 0x80000000      ; is negative?
-        jz .to_decimal_str
-        ; convert from two's compliment & write '-' to out
-        mov byte [ebx], '-'
-        inc ebx
-        not edi
-        inc edi
-    ; write decimal string to stack
-    .to_decimal_str:
         push eax
         mov ecx, esp ; end of number string in stack
+
+        test eax, FLAG_UNSIGNED
+        jnz .add_plus
+        test edi, 0x80000000      ; is negative?
+        jnz .add_minus
+        jmp .add_plus              ; checks flags & adds plus if has to
+    ; depends on FILL_ZEROS flag we should write sign as the first symbol of string
+    ; or as the symbol before the first significant figure
+    .add_minus:
+        not edi
+        inc edi
+        test eax, FILL_ZEROS
+        jz .add_minus_flag
+        mov byte [ebx], '-'
+        inc ebx
+        or eax, DEC_COUNT
+        jmp .to_decimal_str
+    .add_minus_flag:
+        or eax, MINUS
+        jmp .to_decimal_str
+    .add_plus:
+        test eax, PLACE_PLUS
+        jz .add_space
+        test eax, FILL_ZEROS
+        jz .add_plus_flag
+        mov byte [ebx], '+'
+        inc ebx
+        or eax, DEC_COUNT
+        jmp .to_decimal_str
+    .add_plus_flag:
+        or eax, PLUS
+        jmp .to_decimal_str
+    .add_space:
+        test eax, PLACE_SPACE
+        jz .to_decimal_str
+        or eax, SPACE
+        jmp .to_decimal_str
+    ; write decimal string to stack
+    .to_decimal_str:
+        mov [ecx], eax
         mov eax, edi
         mov edi, 10
         dec esp
@@ -57,20 +93,88 @@ section .text
             cmp eax, 0
             jne .loop
         mov eax, [ecx]
-    ; read characters in back order from stack & write to output
+        test eax, PLUS
+        jnz .place_plus
+        test eax, MINUS
+        jnz .place_minus
+        test eax, SPACE
+        jnz .place_space
+        jmp .done_placing
+    .place_plus:
+        mov byte [esp], '+'
+        dec esp
+        jmp .done_placing
+    .place_minus:
+        mov byte [esp], '-'
+        dec esp
+        jmp .done_placing
+    .place_space:
+        mov byte [esp], ' '
+        dec esp
+        jmp .done_placing
+    .done_placing:
+        mov edx, ecx      ; let's find out should we add spaces or zeros
+        sub edx, esp
+        cmp edx, esi
+        ja .write
+        ; let's try to add some spaces or zeros
+        or eax, FILL
+        sub esi, edx
+        inc esi
+        ; one symbol may be written to out
+        test eax, DEC_COUNT
+        jnz .dec_esi
+        jmp .continue
+    .dec_esi:
+        dec esi
+        jz .write
+    .continue:
+        test eax, ALIGN_LEFT
+        jnz .write
+        mov edx, ' '
+        test eax, FILL_ZEROS
+        jz .call_fill
+        mov edx, '0'
+        mov eax, [ecx]
+    .call_fill:
+        call fill_symb
+    ; read characters in reverse order from stack & write to output
+    .write:
         inc esp
         mov dl, byte [esp]
         .loop1:
             mov byte [ebx], dl
             inc ebx
             inc esp
-            mov dl, byte[esp]
+            mov dl, byte [esp]
             cmp esp, ecx
             jne .loop1
-        add esp, 4    ; erase flags in stack
+        add esp, 4      ; erase flags in stack
 
+        test eax, ALIGN_LEFT
+        jz .done_itoa
+        test eax, FILL
+        jz .done_itoa
+        ; btw, esi still contains desirable number
+        mov edx, ' '
+        call fill_symb
+
+    .done_itoa:
         pop ecx
         pop edx
+        ret
+
+    ; places esi symbols with code edx in out string, esi > 0
+    ;
+    ; @param esi number of symbols to be written
+    ; @param edx code of symbol to place
+    ; @param ebx pointer to current position in out string
+    fill_symb:
+        .loop3:
+            mov byte [ebx], dl
+            inc ebx
+            dec esi
+            jnz .loop3
         ret
 
     ; void hw_sprintf(char * out, const char * format, ...)
@@ -123,6 +227,7 @@ section .text
         je .print_long
         cmp edx, 'd'
         je .print_int
+    .digit:
         cmp edx, '9'             ; <= '9'
         ja .incorrect_sequence
         cmp edx, '0'             ; >= '0'
@@ -162,7 +267,7 @@ section .text
     .plus:
         test eax, FLAGS_ENDED
         jnz .incorrect_sequence
-        or eax, ALWAYS_PLUS
+        or eax, PLACE_PLUS
         inc ecx
         jmp .process_format
     .minus:
@@ -174,12 +279,12 @@ section .text
     .space:
         test eax, FLAGS_ENDED
         jnz .incorrect_sequence
-        or eax, FIRST_SPACE
+        or eax, PLACE_SPACE
         inc ecx
         jmp .process_format
     .zero:
         test eax, FLAGS_ENDED
-        jnz .incorrect_sequence
+        jnz .digit
         or eax, FILL_ZEROS
         inc ecx
         jmp .process_format
