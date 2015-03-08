@@ -46,8 +46,12 @@ int main(int argc, char *argv[]) {
     sprintf(buffer, "%01u", -1);
     test(hw_buffer, buffer, verbose);
 
-    hw_sprintf(hw_buffer, "%01-u", -1);
-    sprintf(buffer, "%01-u", -1);
+    hw_sprintf(hw_buffer, "%01-u%d", -1, 1);
+    sprintf(buffer, "%01-u%d", -1, 1);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%%%d", 0);
+    sprintf(buffer, "%%%d", 0);
     test(hw_buffer, buffer, verbose);
 
 	return 0;

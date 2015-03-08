@@ -123,9 +123,10 @@ section .text
         je .print_long
         cmp edx, 'd'
         je .print_int
-        sub edx, '0'
-        cmp edx, 10
-        jl .number_width
+        cmp edx, '9'             ; <= '9'
+        ja .incorrect_sequence
+        cmp edx, '0'             ; >= '0'
+        jae .number_width
         jmp .incorrect_sequence
 
     .print_unsigned:
@@ -153,6 +154,7 @@ section .text
         inc ecx
         jmp .process_next
     .number_width:
+        sub edx, '0'
         imul esi, 10
         add esi, edx
         inc ecx
@@ -190,11 +192,20 @@ section .text
         or eax, FORMAT_SEQUENCE
         push ecx                  ; start of format sequence is now in stack
         inc ecx
-        jmp .process_format
+        mov dl, byte [ecx]
+        cmp edx, '%'              ; .incorrect_sequence prints two '%', so prevent it
+        jne .process_format
+        add esp, 4                ; erase start of sequence
+        mov [ebx], edx
+        inc ebx
+        inc ecx
+        xor eax, eax
+        jmp .process_next
 
     .incorrect_sequence:
         xor eax, eax
         pop esi                   ; start of incorrect sequence
+
         .loop2:
             mov dl, byte [esi]
             mov [ebx], dl
