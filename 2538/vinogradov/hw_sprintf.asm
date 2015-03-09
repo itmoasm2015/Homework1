@@ -201,12 +201,15 @@ process_directive:
 .calc_actual_width_end:
 	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
 
-	;; TODO
+.move_to_right:
+	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
+	add edi, [esp+12]	; start from the rightmost position
+
 .pad_right:
 	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
 	mov ebx, [esp+8]
 	test ebx, flag_hyphen
-	jz .pad_right_loop_start
+	jz .pad_right_end
 .pad_right_loop_start:
 	mov ebx, [esp]
 	cmp ebx, 0
@@ -221,9 +224,7 @@ process_directive:
 
 .output:
 	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	add edi, [esp+12]	; start from the rightmost position
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov eax, [esp+4]
+	mov eax, [esp+4]	; get the value to output
 
 .write_sym:
 	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
@@ -243,14 +244,14 @@ process_directive:
 	mov ebx, [esp+8]
 	test ebx, flag_zero
 	jnz .output_first_cont
-	test ebx, flag_hyphen
-	jnz .output_first_cont
 	test ebx, flag_space|flag_plus|neg_value
 	jz .output_first_cont
 	call write_first_sym
 .output_first_cont:
 
 .pad_left:
+	test ebx, flag_hyphen
+	jnz .pad_left_end
 	mov eax, ' '
 	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
 	mov ebx, [esp+8]
