@@ -1,9 +1,14 @@
 ASM_FLAGS = -f elf32 -g dwarf2
 CXX_FLAGS = -m32 -g -L. -I../../include
 
-all: test clean
+all: test clean_obj
 
 clean:
+	rm -f libhw_sprintf.a
+	rm -f test.o
+	rm -f test
+
+clean_obj:
 	rm -f libhw_sprintf.a
 	rm -f test.o
 
