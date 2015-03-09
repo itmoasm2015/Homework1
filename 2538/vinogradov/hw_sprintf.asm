@@ -274,8 +274,6 @@ process_directive:
 	mov ebx, [esp+8]
 	test ebx, flag_zero
 	jz .output_first_begin_cont
-	test ebx, flag_hyphen
-	jnz .output_first_begin_cont
 	test ebx, flag_space|flag_plus|neg_value
 	jz .output_first_begin_cont
 	call write_first_sym
