@@ -15,12 +15,18 @@ section .data
 
 section .text
 
-    count_unsigned_length:
+    count_length:
     
     push ebx
     
     xor ebx, ebx
     mov eax, dword [esp + 8]
+    mov edx, dword [esp + 12]
+
+    test ch, FLAG_LONG
+    jz .after_swap 
+    xchg eax, edx
+    .after_swap:
     
     mov cl, '+'
     test eax, 0x80000000 ; 100...0b 
@@ -28,10 +34,25 @@ section .text
     test ch, FLAG_SIGN
     jz .after_change_sign
     mov cl, '-' 
-    not eax ; from two's complement 
-    inc eax ; to absolute value 
     
+    test ch, FLAG_LONG
+    jz .32bit_complement
+    .64_complement:
+    not eax
+    not edx
+    add edx, 1
+    adc eax, 0
+    jmp .after_change_sign
+    .32bit_complement:        
+    not eax ; from two's complement 
+    inc eax ; to absolute value
     .after_change_sign:
+       
+    test ch, FLAG_LONG
+    jz .after_swap1 
+    xchg eax, edx
+    .after_swap1:
+
     test ch, FLAG_PLUS + FLAG_SPACE
     jnz .to_inc
     cmp cl, '-'
@@ -41,42 +62,82 @@ section .text
     inc ebx ; result + 1 if sign '+' prints
     .after_inc:
     mov ecx, 10 ; div 10 
+    
+    push esi
+    mov esi, ebx
+     
     .loop:
+    ; divide long number edx:eax by ecx:
+    ; 0:edx / ecx = quot1: eax, rem1: edx
+    ; rem1:eax / ecx = quot2: eax, rem2: edx
+    ; summary, edx:eax /div/ ecx = quot1:quot2
+    ;          edx:eax /mod/ ecx = rem2
+    mov ebx, eax
+    mov eax, edx
     xor edx, edx
     div ecx
-    inc ebx
+    xchg eax, ebx    
+    div ecx 
+    mov edx, ebx
+    inc esi
     cmp eax, 0
     jne .loop
-    mov eax, ebx
-
+    cmp edx, 0
+    jne .loop
+    mov eax, esi
+    
+    pop esi
     pop ebx
     
     ret
 
-    ; print_unsigned(number, width, number_width)
-    print_unsigned:
+    ; print_number(number, width, number_width)
+    print_number:
     push ebx
     push eax
     mov esi, eax ; char* out
     mov edi, eax ; save initial char* out
     mov eax, dword [esp + 12]
+    mov edx, dword [esp + 16]    
     ; ebx = max(width, number_width)
-    mov ebx, dword [esp + 16]
-    cmp ebx, dword [esp + 20]
-    jge .continue
     mov ebx, dword [esp + 20]
+    cmp ebx, dword [esp + 24]
+    jge .continue
+    mov ebx, dword [esp + 24]
     .continue:
     mov cl, '+'
+    
+    test ch, FLAG_LONG
+    jz .after_swap 
+    xchg eax, edx
+    .after_swap:
+    
     test eax, 0x80000000 ; 100....0b 
     jz .after_change_sign 
     test ch, FLAG_SIGN
     jz .after_change_sign
     mov cl, '-'
- 
+    
+    test ch, FLAG_LONG
+    jz .32bit_complement
+    .64_complement:
+    
+    not eax
+    not edx        
+    add edx, 1
+    adc eax, 0
+    
+    jmp .after_change_sign
+    .32bit_complement:        
     not eax ; from two's complement 
     inc eax ; to absolute value
-    
     .after_change_sign:
+    
+    test ch, FLAG_LONG
+    jz .after_swap2 
+    xchg eax, edx
+    .after_swap2:
+    
     push ecx
     test ch, FLAG_MINUS
     jz .else_minus
@@ -90,21 +151,41 @@ section .text
     jge .fill_space
     pop esi
     
-    add esi, dword [esp + 24]
+    add esi, dword [esp + 28]
     dec esi
     jmp .after_minus
     .else_minus:
     lea esi, [esi + ebx - 1]
     .after_minus:
     mov ecx, 10 ; div 10 
+    
+    push ebx
+    
     .loop:
+
+    ; divide long number edx:eax by ecx:
+    ; 0:edx / ecx = quot1: eax, rem1: edx
+    ; rem1:eax / ecx = quot2: eax, rem2: edx
+    ; summary, edx:eax /div/ ecx = quot1:quot2
+    ;          edx:eax /mod/ ecx = rem2
+    mov ebx, eax
+    mov eax, edx
     xor edx, edx
     div ecx
+    xchg eax, ebx
+    div ecx
+    
     add dl, '0'
     mov byte [esi], dl
     dec esi
+    
+    mov edx, ebx
     cmp eax, 0
     jne .loop
+    cmp edx, 0
+    jne .loop
+    
+    pop ebx
 
     pop ecx
     test ch, FLAG_ZERO
@@ -197,7 +278,7 @@ section .text
     xor ch, ch  ; state of reading format token, initially 0, no flags
     inc edx 
     
-    ; case cl of '0', '+', '-', ' ', 'l', 'u', 'd', '%', '1'..'9'
+    ; case cl of '0', '+', '-', ' ', 'l', 'u', 'd', 'i', '%', '1'..'9'
     .parse_percent:
     mov cl, byte [edx]
     
@@ -212,20 +293,21 @@ section .text
     je .minus_flag
     cmp cl, ' '
     je .space_flag
-    cmp cl, '%'
-    je .second_percent
-    
     cmp cl, '1'
     jl .after_width
     cmp cl, '9'
     jle .read_width
     
     .after_width:
+    cmp cl, '%'
+    je .second_percent
     cmp cl, 'l'
     je .first_l
     cmp cl, 'u'
     je .unsigned
     cmp cl, 'd'
+    je .signed
+    cmp cl, 'i'
     je .signed
     
     .incorrect_format:
@@ -298,33 +380,57 @@ section .text
     .after_symbol:
     inc edx
     jmp .parse_percent
-    
+
+    .signed: 
+    or ch, FLAG_SIGN
     .unsigned:
     push edx
     push esi
     push ecx
     push eax
-    ; call count_unsigned_length
-    push dword [esi] ; vararg agrument
-    call count_unsigned_length 
-    add esp, 4
-    mov edi, eax ; return value of count_unsigned_length
+    ; call count_length
+    test ch, FLAG_LONG
+    jz .32bit_l
+    .64bit_l:
+    push dword [esi + 4]
+    push dword [esi]
+    jmp .after_bit_l    
+    .32bit_l:
+    push dword 0     ; high half of number is 0
+    push dword [esi] ; number 
+    .after_bit_l:
+    call count_length 
+    add esp, 8
+    mov edi, eax ; return value of count_length
     pop eax      ; restore eax value
     pop ecx
     push ecx
-    ; call print_unsigned
+    ; call print_number
     ; print(number, width, number_width)
     ; fourth argument passed as eax /fastcall/
     push edi         ; number_width
     push dword [width] ; width
+    test ch, FLAG_LONG
+    jz .32bit
+    .64bit:
+    push dword [esi + 4]
+    push dword [esi]
+    jmp .after_bit    
+    .32bit:
+    push dword 0     ; high half of number is 0
     push dword [esi] ; number 
-    call print_unsigned
-    add esp, 12
-    ; eax is like a return value, it should be equal to it's value after [print_unsigned] call
+    .after_bit:
+    call print_number
+    add esp, 16
+    ; eax is like a return value, it should be equal to it's value after [print_number] call
     pop ecx
     pop esi
     pop edx
     add esi, 4 ; go to next vararg
+    test ch, FLAG_LONG
+    jz .after_64inc
+    add esi, 4 ; another +4, total +8 -- go to next vararg after 64 bit value
+    .after_64inc:
     jmp .after_terminal
       
     .second_percent:
@@ -332,40 +438,6 @@ section .text
     inc eax
     jmp .after_terminal 
    
-    .signed: 
-    ; ------- copypaste --------- ;
-    
-    or ch, FLAG_SIGN
-    
-    push edx
-    push esi
-    push ecx
-    push eax
-    ; call count_unsigned_length
-    push dword [esi] ; vararg agrument
-    call count_unsigned_length ; <------------------------------------------ TOFIX
-    add esp, 4
-    mov edi, eax ; return value of count_unsigned_length
-    pop eax      ; restore eax value
-    pop ecx
-    push ecx
-    ; call print_unsigned
-    ; print(number, width, number_width)
-    ; fourth argument passed as eax /fastcall/
-    push edi         ; number_width
-    push dword [width] ; width
-    push dword [esi] ; number 
-    call print_unsigned
-    add esp, 12
-    ; eax is like a return value, it should be equal to it's value after [print_unsigned] call
-    pop ecx
-    pop esi
-    pop edx
-    add esi, 4 ; go to next vararg
-    jmp .after_terminal
-    
-    ; ------- copypaste --------- ;
-     
     .after_terminal: ; after d, u, and %
     add esp, 4
     inc edx
