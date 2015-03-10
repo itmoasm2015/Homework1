@@ -310,6 +310,8 @@ section .text
         je .print_long
         cmp edx, 'd'
         je .print_int
+        cmp edx, 'i'
+        je .print_int
     .digit:
         cmp edx, '9'             ; <= '9'
         ja .incorrect_sequence
