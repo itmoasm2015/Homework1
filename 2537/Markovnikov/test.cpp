@@ -51,5 +51,10 @@ int main(int argc, char *argv[]) {
     run_test_of_2("%2d %03d", -1, -1);
     run_test_of_2("%2d % 04d", -1, -1);
     run_test_of_2("% 4d % 4d", -1, 1);
+    run_test_of_1("%llu", (long long) -1);
+    run_test_of_1("%llu", (long long) 1 << 32 - 1);
+    run_test_of_1("%llu", (long long) 2 << 33 - 1);
+    run_test_of_1("%lld", - ((long long) 1 << 32 - 1));
+    run_test_of_1("%lld", (long long) -1);
     return 0;
 }
