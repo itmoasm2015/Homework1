@@ -142,26 +142,29 @@ process_directive:
 	;; STACK: width | percent_pos
 	mov [esp+4], esi
 	;; STACK: width | directive_end_pos
-	push ebx
-	;; STACK: flags | width | directive_end_pos
 	
 
-.get_number:
+.get_number_and_sign:
 	mov eax, [ecx]
 	add ecx, 4
+.get_sign:
+	cmp eax, 0
+	jnl .get_number_and_sign_end
+	neg eax			; absolute value
+	setflag(neg_value)
+.get_number_and_sign_end:
+	;; STACK: width | directive_end_pos
+	push ebx
 	;; STACK: flags | width | directive_end_pos
 	push eax
 	;; STACK: value | flags | width | directive_end_pos
+
+	;; TODO: length_ll
 	;; testflag(length_ll)
 	;; jz .output
 	;; mov edx, [ecx]
 	;; add ecx, 4
 
-.get_sign:
-	cmp eax, 0
-	jnl .calc_actual_width
-	neg eax			; absolute value, TODO MIN_VALUE
-	setflag(neg_value)
 
 
 	;; get actual width

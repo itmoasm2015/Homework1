@@ -21,8 +21,8 @@ void hw_printf(char const *format, int n) {
   hw_sprintf(out, format, n);
   if (strcmp(out, out2) != 0) {
     std::cout << "bad " << format << "\n";
-    std::cout << "> " << out << "\n";
-    std::cout << "> " << out2 << "\n";
+    std::cout << "> " << out << "<\n";
+    std::cout << "> " << out2 << "<\n";
   } else {
     std::cout << "OK " << out << "\n";
   }
@@ -30,21 +30,21 @@ void hw_printf(char const *format, int n) {
 
 int main() {
   printf(">>>>>>>>>> start\n");
-  hw_printf("|%++++10i|", 5189321);
-  hw_printf("|%+++010i|", 5189321);
-  hw_printf("|%++ +10i|", 5189321);
-  hw_printf("|%++ 010i|", 5189321);
-  hw_printf("|%+-++10i|", 5189321);
-  hw_printf("|%+-+010i|", 5189321);
-  hw_printf("|%+- +10i|", 5189321);
-  hw_printf("|%+- 010i|", 5189321);
-  hw_printf("|%   010i|", 5189321);
-  hw_printf("|%    10i|", 5189321);
-  hw_printf("|%  -010i|", 5189321);
-  hw_printf("|%  - 10i|", 5189321);
-  hw_printf("|%-010i|"  , 5189321);
-  hw_printf("|%-10i|"   , 5189321);
-  hw_printf("|%010i|"   , 5189321);
-  hw_printf("|%10i|"    , 5189321);
+  hw_printf("|%++++10i|", -5189321);
+  hw_printf("|%+++010i|", -5189321);
+  hw_printf("|%++ +10i|", -5189321);
+  hw_printf("|%++ 010i|", -5189321);
+  hw_printf("|%+-++10i|", -5189321);
+  hw_printf("|%+-+010i|", -5189321);
+  hw_printf("|%+- +10i|", -5189321);
+  hw_printf("|%+- 010i|", -5189321);
+  hw_printf("|%   010i|", -5189321);
+  hw_printf("|%    10i|", -5189321);
+  hw_printf("|%  -010i|", -5189321);
+  hw_printf("|%  - 10i|", -5189321);
+  hw_printf("|%-010i|"  , -5189321);
+  hw_printf("|%-10i|"   , -5189321);
+  hw_printf("|%010i|"   , -5189321);
+  hw_printf("|%10i|"    , -5189321);
   return 0;
 }
