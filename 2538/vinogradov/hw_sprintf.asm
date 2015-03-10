@@ -24,6 +24,7 @@ hw_sprintf:
 	mov edi, [ebp+8]	; *out
 	mov esi, [ebp+12]	; *format
 	lea ecx, [ebp+16]	; pointer to current value to output
+	push ecx
 
 process_char:
 	;; if the symbol is %, process it as a directive
@@ -37,18 +38,13 @@ process_char:
 	cmp byte [esi-1], 0
 	jne process_char
 
+	add esp, 4		; forget value_pointer
 	pop edi
 	pop esi
 	pop ebx
 	pop ebp
 
 	ret
-
-;; ebx - flags, then something
-;; ecx - pointer to current value to output
-;; edx - width, then some number
-;; esi - current *format position
-;; edi - current *out position
 
 ; process a directive
 process_directive:
@@ -145,11 +141,17 @@ process_directive:
 	
 
 .get_number_and_sign:
+	;; STACK: width | directive_end_pos | VALUE_POINTER
+	mov ecx, [esp+8]
 	mov eax, [ecx]
 	add ecx, 4
+	mov [esp+8], ecx
+	add dword [ebp-4], 4
 .get_sign:
 	cmp eax, 0
 	jnl .get_number_and_sign_end
+	testflag(spec_unsigned)
+	jnz .get_number_and_sign_end
 	neg eax			; absolute value
 	setflag(neg_value)
 .get_number_and_sign_end:
