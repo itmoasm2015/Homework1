@@ -7,7 +7,7 @@
 
 extern "C" void hw_sprintf(char *out, char const *format, ...);
 
-void hw_printf(char const *format, long long a, int b) {
+void hw_printf(char const *format, unsigned long long a, int b) {
   const int BUF_SIZE = 1024; // supposed to be enough
   char out[BUF_SIZE];
   char out2[BUF_SIZE];
@@ -27,21 +27,21 @@ void hw_printf(char const *format, long long a, int b) {
 
 int main() {
   printf(">>>>>>>>>> start\n");
-  hw_printf("|%++++15lld %i|", 5123456789, 1);
-  hw_printf("|%+++015lld %i|", 5123456789, 1);
-  hw_printf("|%++ +15lld %i|", 5123456789, 1);
-  hw_printf("|%++ 015lld %i|", 5123456789, 1);
-  hw_printf("|%+-++15lld %i|", 5123456789, 1);
-  hw_printf("|%+-+015lld %i|", 5123456789, 1);
-  hw_printf("|%+- +15lld %i|", 5123456789, 1);
-  hw_printf("|%+- 015lld %i|", 5123456789, 1);
-  hw_printf("|%   015lld %i|", 5123456789, 1);
-  hw_printf("|%    15lld %i|", 5123456789, 1);
-  hw_printf("|%  -015lld %i|", 5123456789, 1);
-  hw_printf("|%  - 15lld %i|", 5123456789, 1);
-  hw_printf("|%-015lld %i|"  , 5123456789, 1);
-  hw_printf("|%-15lld %i|"   , 5123456789, 1);
-  hw_printf("|%015lld %i|"   , 5123456789, 1);
-  hw_printf("|%15lld %i|"    , 5123456789, 1);
+  hw_printf("|%++++15llu %i|", 12345, 1);
+  hw_printf("|%+++015llu %i|", 12345, 1);
+  hw_printf("|%++ +15llu %i|", 12345, 1);
+  hw_printf("|%++ 015llu %i|", 12345, 1);
+  hw_printf("|%+-++15llu %i|", 12345, 1);
+  hw_printf("|%+-+015llu %i|", 12345, 1);
+  hw_printf("|%+- +15llu %i|", 12345, 1);
+  hw_printf("|%+- 015llu %i|", 12345, 1);
+  hw_printf("|%   015llu %i|", 12345, 1);
+  hw_printf("|%    15llu %i|", 12345, 1);
+  hw_printf("|%  -015llu %i|", 12345, 1);
+  hw_printf("|%  - 15llu %i|", 12345, 1);
+  hw_printf("|%-015llu %i|"  , 12345, 1);
+  hw_printf("|%-15llu %i|"   , 12345, 1);
+  hw_printf("|%015llu %i|"   , 12345, 1);
+  hw_printf("|%15llu %i|"    , 12345, 1);
   return 0;
 }
