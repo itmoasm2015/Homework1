@@ -9,7 +9,7 @@ clean:
 	rm -f test
 
 clean_obj:
-	rm -f libhw_sprintf.a
+	rm -f libhw_sprintf.o
 	rm -f test.o
 
 test: libhw_sprintf.a test.o
