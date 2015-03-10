@@ -142,53 +142,42 @@ process_directive:
 
 .get_number_and_sign:
 	;; STACK: width | directive_end_pos | VALUE_POINTER
+	mov ecx, [esp+8]
 	testflag(length_ll)
 	jnz .get_number_64
 .get_number_32:
-	mov ecx, [esp+8]
+	xor edx, edx
 	mov eax, [ecx]
 	add dword [esp+8], 4
-	cmp eax, 0	
-	jge .get_number_32_positive
 	testflag(spec_unsigned)
-	jnz .get_number_32_positive
+	jnz .get_number_and_sign_end
+	cmp eax, 0
+	jge .get_number_and_sign_end
 .get_number_32_negative:
-	mov edx, 1<<31
-	neg eax
 	setflag(neg_value)
-.get_number_32_positive:
-	xor edx, edx
+	neg eax
 	jmp .get_number_and_sign_end
 .get_number_64:
-	mov ecx, [esp+8]
 	mov eax, [ecx]
 	mov edx, [ecx+4]
 	add dword [esp+8], 8
-	cmp edx, 0	
-	jge .get_number_and_sign_end
 	testflag(spec_unsigned)
 	jnz .get_number_and_sign_end
+	cmp edx, 0
+	jge .get_number_and_sign_end
 .get_number_64_negative:
-	;; get absolute value
+	setflag(neg_value)
 	not eax
 	not edx
 	add eax, 1
 	adc edx, 0
-	setflag(neg_value)
 .get_number_and_sign_end:
 	;; STACK: width | directive_end_pos
 	push ebx
 	;; STACK: flags | width | directive_end_pos
+	push edx
 	push eax
-	;; STACK: value | flags | width | directive_end_pos
-
-	;; TODO: length_ll
-	;; testflag(length_ll)
-	;; jz .output
-	;; mov edx, [ecx]
-	;; add ecx, 4
-
-
+	;; STACK: value(8) | flags | width | directive_end_pos
 
 	;; get actual width
 .calc_actual_width:
@@ -197,43 +186,57 @@ process_directive:
 	testflag(flag_plus|flag_space|neg_value)
 	jz .calc_actual_width_number
 	mov ecx, 1		; place for sign or space
+	;; based on http://www.df.lth.se/~john_e/gems/gem0033.html
 .calc_actual_width_number:
-	mov esi, 10
-.calc_actual_width_loop:
-	xor edx, edx
-	div esi
+	mov ebx, 10
+	mov esi, edx
+.calc_actual_width_big:
+	cmp edx, 10
+	jb .calc_actual_width_small
+	;; value = hi·2³²+lo
+	;; esi=hi, edx=hi, eax=lo
+	xchg eax, esi		; lo hi hi  
+	xor edx, edx		; lo 0 hi
+	div ebx			; lo hi%10 hi/10
+	xchg eax, esi		; hi/10 hi%10 lo
+	div ebx			; hi/10 (hi%10:lo)%10 (hi%10:lo)/10
+	mov edx, esi		; hi/10 hi/10 (hi%10:lo)/10
+	jmp .calc_actual_width_big
+.calc_actual_width_small:
+	div ebx
 	add ecx, 1
+	xor edx, edx
 	cmp eax, 0
-	jne .calc_actual_width_loop
+	jne .calc_actual_width_small
 .calc_actual_width_compare:
-	;; STACK: value | flags | width | directive_end_pos
-	cmp ecx, [esp+8]
+	;; STACK: value(8) | flags | width | directive_end_pos
+	cmp ecx, [esp+12]
 	jle .calc_actual_width_has_pad
 	jmp .calc_actual_width_no_pad
 .calc_actual_width_has_pad:
-	;; STACK: value | flags | width | directive_end_pos
-	mov edx, [esp+8]
-	;; STACK: value | flags | actual_width | directive_end_pos
+	;; STACK: value(8) | flags | width | directive_end_pos
+	mov edx, [esp+12]
+	;; STACK: value(8) | flags | actual_width | directive_end_pos
 	sub edx, ecx
 	push edx
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
 	jmp .calc_actual_width_end
 .calc_actual_width_no_pad:
-	;; STACK: value | flags | width | directive_end_pos
-	mov [esp+8], ecx
-	;; STACK: value | flags | actual_width | directive_end_pos
-	push dword 0
-	;; STACK: pad_width | value | flags | width | directive_end_pos
+	;; STACK: value(8) | flags | width | directive_end_pos
+	mov [esp+12], ecx	; ecx ← width
+	;; STACK: value(8) | flags | actual_width | directive_end_pos
+	push dword 0		; push pad_width
+	;; STACK: pad_width | value(8) | flags | width | directive_end_pos
 .calc_actual_width_end:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
 
 .move_to_right:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	add edi, [esp+12]	; start from the rightmost position
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	add edi, [esp+16]	; start from the rightmost position
 
 .pad_right:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov ebx, [esp+8]
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	mov ebx, [esp+12]
 	test ebx, flag_hyphen
 	jz .pad_right_end
 .pad_right_loop_start:
@@ -249,25 +252,46 @@ process_directive:
 
 
 .output:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov eax, [esp+4]	; get the value to output
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	;; get the value to output
+	mov eax, [esp+4]	
+	mov edx, [esp+8]
+	mov ebx, 10
+	mov esi, edx
 
-.write_sym:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
+.output_big:
+	cmp edx, 10
+	jb .output_small
+
+	;; edx:eax=hi:lo, esi=hi
+	xchg eax, esi		
+	xor edx, edx		
+	div ebx			
+	xchg eax, esi		
+	div ebx			
+	mov edx, esi		
+	;; edx = (hi:lo)%10
+
+      	sub edi, 1
+      	add dl, '0'
+      	mov [edi], dl
+
+	jmp .output_big
+.output_small:
+	div ebx
+	add ecx, 1
+
+      	sub edi, 1
+      	add dl, '0'
+      	mov [edi], dl
+
 	xor edx, edx
-	mov esi, 10
-	div esi
-	
-	sub edi, 1
-	add dl, '0'
-	mov [edi], dl
-
 	cmp eax, 0
-	jne .write_sym
+	jne .output_small
 
 .output_first:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov ebx, [esp+8]
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	mov ebx, [esp+12]
 	test ebx, flag_zero
 	jnz .output_first_cont
 	test ebx, flag_space|flag_plus|neg_value
@@ -276,16 +300,16 @@ process_directive:
 .output_first_cont:
 
 .pad_left:
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	mov ebx, [esp+12]	; ebx ← flags
 	test ebx, flag_hyphen
 	jnz .pad_left_end
 	mov eax, ' '
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov ebx, [esp+8]
-	test ebx, flag_zero
 	jz .pad_left_loop_start
 	mov eax, '0'
 .pad_left_loop_start:
-	mov ebx, [esp]
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	mov ebx, [esp]		; ebx ← pad_width
 	cmp ebx, 0
 	je .pad_left_end
 .pad_left_loop:
@@ -296,8 +320,8 @@ process_directive:
 .pad_left_end:
 
 .output_first_begin:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	mov ebx, [esp+8]
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	mov ebx, [esp+12]
 	test ebx, flag_zero
 	jz .output_first_begin_cont
 	test ebx, flag_space|flag_plus|neg_value
@@ -307,9 +331,9 @@ process_directive:
 
 
 .end:
-	;; STACK: pad_width | value | flags | actual_width | directive_end_pos
-	add edi, [esp+12]
-	add esp, 16
+	;; STACK: pad_width | value(8) | flags | actual_width | directive_end_pos
+	add edi, [esp+16]
+	add esp, 20
 	;; STACK: directive_end_pos
 	pop esi
 	;; STACK: ∅
@@ -334,4 +358,3 @@ write_first_sym:
 .end:
 	ret
 
-write_pad:	
