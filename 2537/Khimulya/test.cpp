@@ -146,5 +146,13 @@ int main(int argc, char *argv[]) {
     sprintf(buffer, "%10lli %-10lli", (long long)0, (long long)111);
     test(hw_buffer, buffer, verbose);
 
+    hw_sprintf(hw_buffer, "%-%%d", 123);
+    sprintf(buffer, "%-%%d", 123);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%-00-%%d % -010% %-0 10lli", 123, (long long)321);
+    sprintf(buffer, "%-00-%%d % -010% %-0 10lli", 123, (long long)321);
+    test(hw_buffer, buffer, verbose);
+
 	return 0;
 }
