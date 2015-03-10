@@ -1,4 +1,6 @@
-global hw_sprintf
+global _hw_sprintf
+
+extern _printf
 
 %define FLAG_ZERO  1
 %define FLAG_PLUS  2
@@ -10,45 +12,39 @@ global hw_sprintf
 
 section .text
 
-    ; int count_length(64-bit number)
-    ; returns length of string representation of "number"
-    ; according to flags
-    ; /fastcall/ ch contains flags
     count_length:
     
     push ebx
-    push esi
-                
-    xor ebx, ebx       ; stores current length of number
-    mov eax, dword [esp + 12]  ; 1st half of number
-    mov edx, dword [esp + 16]  ; 2nd half of number
+    
+    xor ebx, ebx
+    mov eax, dword [esp + 8]
+    mov edx, dword [esp + 12]
 
-    test ch, FLAG_LONG ; hack for determination 
-    jz .after_swap     ; sign of number
-    xchg eax, edx      ; in code below tests higher bit of eax
-    .after_swap:       ; so let's swap edx:eax if number is long
-            
-    mov cl, '+'            ; cl will store char for sign of number
-    test eax, 0x80000000   ; test if higher bit of eax is set
-    jz .after_change_sign  
-    test ch, FLAG_SIGN     ; if higher bit is 1 and number is signed
+    test ch, FLAG_LONG
+    jz .after_swap 
+    xchg eax, edx
+    .after_swap:
+    
+    mov cl, '+'
+    test eax, 0x80000000 ; 100...0b 
+    jz .after_change_sign 
+    test ch, FLAG_SIGN
     jz .after_change_sign
-    mov cl, '-'            ; new sign char if '-'
+    mov cl, '-' 
     
     test ch, FLAG_LONG
     jz .32bit_complement
     .64_complement:
-    not eax       ; conversion from two's complement for 64-bit value
-    not edx       ; ~(eax:edx) + 1
-    add edx, 1    ; eax:edx because we reversed number for sign determination hack higher
-    adc eax, 0    ; add edx, 1 instead of inc edx because inc does not set flags
+    not eax
+    not edx
+    add edx, 1
+    adc eax, 0
     jmp .after_change_sign
     .32bit_complement:        
-    neg eax       ; from two's complement to absolute value
+    neg eax 
     .after_change_sign:
-
-                     
-    test ch, FLAG_LONG ; let's swap halves of number back if we did
+       
+    test ch, FLAG_LONG
     jz .after_swap1 
     xchg eax, edx
     .after_swap1:
@@ -59,12 +55,13 @@ section .text
     je .to_inc
     jmp .after_inc
     .to_inc:
-    inc ebx     ; result + 1 if sign prints (number < 0, '+' or ' ' flag is set)
+    inc ebx ; result + 1 if sign '+', '-' or ' ' prints
     .after_inc:
-    
-    mov ecx, 10 ; for div 10 
+    mov ecx, 10 ; div 10
 
+    push esi
     mov esi, ebx
+    
      
     .loop64:
     ; divide long number edx:eax by ecx:
@@ -83,9 +80,9 @@ section .text
     cmp edx, 0
     jne .loop64
     cmp eax, 0
-    je  .after_loop32 ; kind of optimization:
-    jmp .loop32       ; when edx == 0 our 64-bit value became 32-bit
-    .after_loop32:    ; so go to the 32-bit loop, it is faster
+    je  .after_loop32
+    jmp .loop32
+    .after_loop32:
     mov eax, esi
     
     jmp .after_loops
@@ -108,34 +105,33 @@ section .text
 
     ; print_number(number, width, number_width)
     print_number:
-    
     push ebx
     push eax
-    
+
     mov esi, eax ; char* out
     mov edi, eax ; save initial char* out
-    mov eax, dword [esp + 12] ; 1st half of number
-    mov edx, dword [esp + 16] ; 2nd half of number  
+    mov eax, dword [esp + 12]
+    mov edx, dword [esp + 16]    
     ; ebx = max(width, number_width)
-    mov ebx, dword [esp + 20] ; number_width
-    cmp ebx, dword [esp + 24] ; if ebx < width
+    mov ebx, dword [esp + 20]
+    cmp ebx, dword [esp + 24]
     jge .continue
-    mov ebx, dword [esp + 24] ; ebx = width
+    mov ebx, dword [esp + 24]
     .continue:
+    mov cl, '+'
     
-    test ch, FLAG_LONG ; swap halves trik again
-    jz .after_swap     ; just as in count_length
+    test ch, FLAG_LONG
+    jz .after_swap 
     xchg eax, edx
     .after_swap:
     
-    mov cl, '+'
-    test eax, 0x80000000  ; test higher bit again
+    test eax, 0x80000000 ; 100....0b 
     jz .after_change_sign 
     test ch, FLAG_SIGN
     jz .after_change_sign
     mov cl, '-'
     
-    test ch, FLAG_LONG    ; convert from two's complement
+    test ch, FLAG_LONG
     jz .32bit_complement
     .64_complement:
     
@@ -146,10 +142,10 @@ section .text
     
     jmp .after_change_sign
     .32bit_complement:        
-    neg eax               ; from two's complement to absolute value
+    neg eax
     .after_change_sign:
     
-    test ch, FLAG_LONG    ; swap them back
+    test ch, FLAG_LONG
     jz .after_swap2 
     xchg eax, edx
     .after_swap2:
@@ -157,26 +153,28 @@ section .text
     push ecx
     test ch, FLAG_MINUS
     jz .else_minus
-    
-    push esi                  ; left alignment if '-' flag is set
+ 
+    push esi
     lea esi, [esi + ebx - 1]
     .fill_space:
     mov byte [esi], ' '
     dec esi
     cmp esi, edi
     jge .fill_space
-    pop esi
-    
-    add esi, dword [esp + 28] ; jump to the end of number to print it
+    pop esi 
+            
+    add esi, dword [esp + 28]
     dec esi
     jmp .after_minus
     .else_minus:
     lea esi, [esi + ebx - 1]
     .after_minus:
     
-    mov ecx, 10 ; for div 10 
-    
     push ebx
+    
+    test ch, FLAG_LONG 
+    mov ecx, 10 ; div 10 
+    jz .loop32 
     
     .loop64:
     ; divide long number edx:eax by ecx:
@@ -202,9 +200,6 @@ section .text
     je  .after_loops
     ; jmp .loop32 -- just goes to the next string automatically
     ; jump to loop32 is intended, not accident
-    ; the loop is splitted into two partes: 64-bit and 32-bit
-    ; 64-bit cycle divides numbers with eax > 0 (edx:eax)
-    ; when edx became 0, we can divide 32-bit value (0:eax)
     
     .loop32:
     xor edx, edx
@@ -217,26 +212,19 @@ section .text
     
     .after_loops:
     
-    
     pop ebx
-
-    pop ecx ; refresh ch, contains flags
+    pop ecx
+    
     test ch, FLAG_ZERO
-    push ecx
-    mov ah, ' '
+    mov al, ' '
     jz .after_change_fill
-    mov ah, '0'
+    mov al, '0'
   
     .after_change_fill:
-    pop ecx
     test ch, FLAG_ZERO
-    push ecx
     jnz .after_sign ; skip sign if zeroes
 
-    ; set sign before number if spaces: "      [sign][number]"
-    pop ecx
     test ch, FLAG_PLUS
-    push ecx
     jnz .set_sign
     cmp cl, '-'
     je .set_sign
@@ -247,21 +235,17 @@ section .text
 
     .after_sign:
     cmp esi, edi
-    jl .after_loop
+    jl .after_loop    
     .rest_loop:
-    mov byte [esi], ah
+    mov byte [esi], al
     dec esi
     cmp esi, edi
     jge .rest_loop
     
-    pop ecx
     test ch, FLAG_ZERO
-    push ecx
     jz .after_loop ; skip sign if not zeroes
      
-    pop ecx   
     test ch, FLAG_SPACE
-    push ecx
     jz .after_space
     inc esi
     mov byte [esi], ' '
@@ -269,10 +253,7 @@ section .text
     
     .after_space:
     
-    ; replace last '0' symbol to sign: "000000[number]" -> "[sign]00000[number]"
-    pop ecx
     test ch, FLAG_PLUS
-    push ecx
     jnz .set_sign_after
     cmp cl, '-'
     je .set_sign_after
@@ -283,24 +264,23 @@ section .text
     dec esi
 
     .after_loop:
-    pop ecx      
     pop eax
-    add eax, ebx ; move pointer to the end of string after printed number
-    pop ebx      ; eax is a returned value of print_number (new position is string)
-    
+    add eax, ebx
+    pop ebx
     ret
 
+
     ; hw_sprintf(char* out, const char* format, ...) 
-    hw_sprintf:
+    _hw_sprintf:
 
     ; all registers: eax, ebx, ecx, edx, esi, edi
     ; cdecl declare callee need to save ebx, esi, edi
     push ebx
     push esi
     push edi
-
-    xor ebx, ebx        ; initially width = 0
-            
+    
+    xor ebx, ebx ; width
+    
     mov eax, [esp + 16] ; char* out
     mov edx, [esp + 20] ; const char* format
     lea esi, [esp + 24] ; place of 1st vararg
@@ -317,10 +297,9 @@ section .text
     .parse_percent:
     mov cl, byte [edx]
     
-    test ch, FLAG_WIDTH ; if width has already read
-    jnz .after_width    ; jump to read only [ll]{d,i,u,%}
+    test ch, FLAG_WIDTH
+    jnz .after_width
     
-    ; switch-case by cl symbol
     cmp cl, '0'
     je .zero_flag
     cmp cl, '+'
@@ -353,42 +332,42 @@ section .text
     inc eax
     jmp .main_loop
   
-    ; parsing of width
     .read_width:
-    xor ebx, ebx ; initialization, width = 0
-    push eax
-    .width_loop:
-        mov cl, byte [edx]    ; read next char
-        cmp cl, '0'           ; if it is not in range ['0'..'9'] -- exit  
+    xor ebx, ebx
+    .width_loop: 
+        mov cl, byte [edx]
+        cmp cl, '0'
         jl .after_width_loop
         cmp cl, '9'
         jg .after_width_loop
-        inc edx  ; go to next symbol
+        inc edx
 
-        ; save some registers
+        push eax
         push edx
         push ecx
         
-        mov eax, ebx ; (0:ebx) * 10
-        mov ecx, 10  
+        xor edx, edx
+        mov eax, ebx
+        mov ecx, 10
         mul ecx
         
         pop ecx
         push ecx
         sub cl, '0'
-        and ecx, 0x000000FF ; only least 8 bits store useful information
-        lea ebx, [eax + ecx]
+        mov edx, ecx
+        and edx, 0x000000FF
+        add eax, edx
+                
+        mov ebx, eax   
                                                                         
-        pop ecx ; restore registers value
+        pop ecx
         pop edx
-        
+        pop eax
         jmp .width_loop
     .after_width_loop:
-    pop eax    
     or ch, FLAG_WIDTH
     jmp .parse_percent
-
-    ; set some flags        
+        
     .zero_flag:
     or ch, FLAG_ZERO
     jmp .after_symbol
@@ -407,10 +386,10 @@ section .text
     
     .first_l:
     inc edx
-    mov cl, byte [edx]    ; if read 'l' read another symbol
-    cmp cl, 'l'           ; if it is not another 'l' this token is incorrect
-    jne .incorrect_format ; we read only 1 symbol, so even if first 'l' was the last
-    or ch, FLAG_LONG      ; symbol in string we will read '\0' symbol and not read out ouf bounds
+    mov cl, byte [edx]
+    cmp cl, 'l'
+    jne .incorrect_format
+    or ch, FLAG_LONG
     jmp .after_symbol
     
     .after_symbol:

@@ -26,7 +26,6 @@ unsigned long long ulldata[] = {0, 1, 123456789, 987654321, 0x7fffffff, 0xff0000
 int main() {
     
     int a = 0, b = 0;
-    int time1;
     TEST(a, b, "lel", 0)
     TEST(a, b, "%%", 0)
     TEST(a, b, "%+- 0123124%", 0)
@@ -49,7 +48,6 @@ int main() {
     printf("got %d/%d tests good\n", a, b);
     
     printf("time to wait\n");
-    time1 = clock();
     char dest_str[500];
     for(int i = 0; i < 5000000; i++) {
         hw_sprintf(dest_str, "%030lli %030lli %-30i %-30i", (long long) i, 0x0fffffffffffffffll, i, -i);
@@ -57,7 +55,7 @@ int main() {
     
     char* bs = (char*) malloc(1000000);
     hw_sprintf(bs, "%0999999i", 1);
-    printf("time: %d\n", (clock() - time1) / (CLOCKS_PER_SEC / 1000));
+    printf("long len %d\n", strlen(bs));
     free(bs);
     
     return 0;
