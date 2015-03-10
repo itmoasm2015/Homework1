@@ -201,6 +201,7 @@ process_directive:
 	xchg eax, esi		; hi/10 hi%10 lo
 	div ebx			; hi/10 (hi%10:lo)%10 (hi%10:lo)/10
 	mov edx, esi		; hi/10 hi/10 (hi%10:lo)/10
+	add ecx, 1
 	jmp .calc_actual_width_big
 .calc_actual_width_small:
 	div ebx
@@ -269,17 +270,17 @@ process_directive:
 	div ebx			
 	xchg eax, esi		
 	div ebx			
-	mov edx, esi		
 	;; edx = (hi:lo)%10
 
       	sub edi, 1
       	add dl, '0'
       	mov [edi], dl
 
+	mov edx, esi		
+
 	jmp .output_big
 .output_small:
 	div ebx
-	add ecx, 1
 
       	sub edi, 1
       	add dl, '0'
