@@ -7,7 +7,7 @@
 
 extern "C" void hw_sprintf(char *out, char const *format, ...);
 
-void hw_printf(char const *format, unsigned long long a, int b) {
+void hw_printf(char const *format, long long a, int b) {
   char out[1024]; // supposed to be enough
   char out2[1024];
   hw_sprintf(out, format, a, b);
@@ -23,21 +23,21 @@ void hw_printf(char const *format, unsigned long long a, int b) {
 
 int main() {
   printf(">>>>>>>>>> start\n");
-  hw_printf("|%++++10d %i|", 1123456789, 1);
-  hw_printf("|%+++010d %i|", 1123456789, 1);
-  hw_printf("|%++ +10d %i|", 1123456789, 1);
-  hw_printf("|%++ 010d %i|", 1123456789, 1);
-  hw_printf("|%+-++10d %i|", 1123456789, 1);
-  hw_printf("|%+-+010d %i|", 1123456789, 1);
-  hw_printf("|%+- +10d %i|", 1123456789, 1);
-  hw_printf("|%+- 010d %i|", 1123456789, 1);
-  hw_printf("|%   010d %i|", 1123456789, 1);
-  hw_printf("|%    10d %i|", 1123456789, 1);
-  hw_printf("|%  -010d %i|", 1123456789, 1);
-  hw_printf("|%  - 10d %i|", 1123456789, 1);
-  hw_printf("|%-010d %i|"  , 1123456789, 1);
-  hw_printf("|%-10d %i|"   , 1123456789, 1);
-  hw_printf("|%010d %i|"   , 1123456789, 1);
-  hw_printf("|%10d %i|"    , 1123456789, 1);
+  hw_printf("|%++++10lld %i|", -3123456789, 1);
+  hw_printf("|%+++010lld %i|", -3123456789, 1);
+  hw_printf("|%++ +10lld %i|", -3123456789, 1);
+  hw_printf("|%++ 010lld %i|", -3123456789, 1);
+  hw_printf("|%+-++10lld %i|", -3123456789, 1);
+  hw_printf("|%+-+010lld %i|", -3123456789, 1);
+  hw_printf("|%+- +10lld %i|", -3123456789, 1);
+  hw_printf("|%+- 010lld %i|", -3123456789, 1);
+  hw_printf("|%   010lld %i|", -3123456789, 1);
+  hw_printf("|%    10lld %i|", -3123456789, 1);
+  hw_printf("|%  -010lld %i|", -3123456789, 1);
+  hw_printf("|%  - 10lld %i|", -3123456789, 1);
+  hw_printf("|%-010lld %i|"  , -3123456789, 1);
+  hw_printf("|%-10lld %i|"   , -3123456789, 1);
+  hw_printf("|%010lld %i|"   , -3123456789, 1);
+  hw_printf("|%10lld %i|"    , -3123456789, 1);
   return 0;
 }

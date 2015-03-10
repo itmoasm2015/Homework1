@@ -142,17 +142,38 @@ process_directive:
 
 .get_number_and_sign:
 	;; STACK: width | directive_end_pos | VALUE_POINTER
+	testflag(length_ll)
+	jnz .get_number_64
+.get_number_32:
 	mov ecx, [esp+8]
 	mov eax, [ecx]
-	add ecx, 4
-	mov [esp+8], ecx
-	add dword [ebp-4], 4
-.get_sign:
-	cmp eax, 0
-	jnl .get_number_and_sign_end
+	add dword [esp+8], 4
+	cmp eax, 0	
+	jge .get_number_32_positive
+	testflag(spec_unsigned)
+	jnz .get_number_32_positive
+.get_number_32_negative:
+	mov edx, 1<<31
+	neg eax
+	setflag(neg_value)
+.get_number_32_positive:
+	xor edx, edx
+	jmp .get_number_and_sign_end
+.get_number_64:
+	mov ecx, [esp+8]
+	mov eax, [ecx]
+	mov edx, [ecx+4]
+	add dword [esp+8], 8
+	cmp edx, 0	
+	jge .get_number_and_sign_end
 	testflag(spec_unsigned)
 	jnz .get_number_and_sign_end
-	neg eax			; absolute value
+.get_number_64_negative:
+	;; get absolute value
+	not eax
+	not edx
+	add eax, 1
+	adc edx, 0
 	setflag(neg_value)
 .get_number_and_sign_end:
 	;; STACK: width | directive_end_pos
