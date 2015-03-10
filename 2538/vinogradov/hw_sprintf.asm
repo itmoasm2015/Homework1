@@ -305,6 +305,7 @@ process_directive:
 	test ebx, flag_hyphen
 	jnz .pad_left_end
 	mov eax, ' '
+	test ebx, flag_zero
 	jz .pad_left_loop_start
 	mov eax, '0'
 .pad_left_loop_start:
