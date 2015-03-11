@@ -112,22 +112,31 @@ process_directive:
 ;; ebx[5] ← spec_unsigned
 .parse_spec:
 	lodsb
-	cmp byte al, 'i'
+	cmp al, 'i'
 	je .parse_spec_signed
-	cmp byte al, 'd'
+	cmp al, 'd'
 	je .parse_spec_signed
-	cmp byte al, 'u'
+	cmp al, 'u'
 	je .parse_spec_unsigned
-	
-	;; invalid specification, roll back
-.roll_back:
+	cmp al, '%'
+	je .percent_spec
+.invalid_spec:
 	;; STACK: width | percent_pos
 	add esp, 4		; forget width
 	;; STACK: percent_pos
 	pop esi			; return to the position of %
 	;; STACK: ∅
 	mov byte [edi], '%'	; copy % to destination
+	add edi, 1
 	add esi, 1
+	jmp process_char
+
+.percent_spec:
+	;; STACK: width | percent_pos
+	add esp, 8		; forget width and percent_pos
+	;; STACK: ∅
+	mov byte [edi], '%'
+	add edi, 1
 	jmp process_char
 	
 .parse_spec_unsigned:	
