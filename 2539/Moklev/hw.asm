@@ -317,6 +317,9 @@ section .text
     .parse_percent:
     mov cl, byte [edx]
     
+    test ch, FLAG_LONG  ; if ll has already read
+    jnz .after_width    ; jump to read only {d,i,u,%}
+    
     test ch, FLAG_WIDTH ; if width has already read
     jnz .after_width    ; jump to read only [ll]{d,i,u,%}
     
@@ -335,10 +338,12 @@ section .text
     jle .read_width
     
     .after_width:
-    cmp cl, '%'
-    je .second_percent
     cmp cl, 'l'
     je .first_l
+    
+    .after_long:
+    cmp cl, '%'
+    je .second_percent
     cmp cl, 'u'
     je .unsigned
     cmp cl, 'd'
