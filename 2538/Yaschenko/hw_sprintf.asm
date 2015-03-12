@@ -1,9 +1,10 @@
 section .text
 
-FLAG_PLUS       equ         1 << 0
-FLAG_SPACE      equ         1 << 1
-FLAG_HYPHEN     equ         1 << 2
-FLAG_ZERO       equ         1 << 3
+FLAG_PLUS	equ	1 << 0
+FLAG_SPACE	equ	1 << 1
+FLAG_HYPHEN	equ	1 << 2
+FLAG_ZERO	equ	1 << 3
+FLAG_LL		equ	1 << 4	
 
 ; void hw_swprintf(char* out, char const* format, ...)
 	global hw_sprintf
@@ -28,10 +29,8 @@ hw_sprintf:
 	lea ebx, [ebp + 16]     ; the rest of arguments to format
 
 .main_loop:                     ; iterates over chars in format
-        xor edx, edx            
-        mov dl, byte [esi]	; dl stores current character
-
-        cmp dl, '%'		; if current char is not escaping '%' sign
+        
+        cmp byte [esi], '%'	; if current char is not escaping '%' sign
         jne .print_char		; just print it to *out
 
         xor ebx, ebx            ; else clear format flags
@@ -39,32 +38,62 @@ hw_sprintf:
 
 .parse_flags:			; start parsing flags
         inc esi			; skip format char
-        mov dl, byte [esi]      ; get next format char
 
-        cmp dl, '+'
+        cmp byte [esi], '+'
         je .char_plus
 
-        cmp dl, ' '
+        cmp byte [esi], ' '
         je .char_space
 
-        cmp dl, '-'
+        cmp byte [esi], '-'
         je .char_hyphen
 
-        cmp dl, '0'
+        cmp byte [esi], '0'
         je .char_zero
 
-	cmp dl, '1'		; current char < '1' (< '0' actually, see previous comparison)
-	jl .print_char		; so it can't be 'width', 'size' or 'type' - just print it
+.parse_width:			; parse format width
+	xor edx, edx		; edx stores 'width'
+.parse_width_loop:
+	cmp byte [esi], '0'	; if current char
+	jl .parse_width_end	; is not digit
+	cmp byte [esi], '9'	; skip
+	jg .parse_width_end	; it
 
-	cmp dl, '9'
-	jle .parse_width
-	jmp .parse_
+	lea edx, [edx + 4*edx]	; edx *= 5
+	shl edx, 1		; edx *= 2
 
-.parse_width:
+	xor eax, eax		
+	mov al, byte [esi]	; edx += (current char) - '0'
+	sub eax, '0'
+	add edx, eax
 
-.parse_size:
+	inc esi
+	jmp .parse_width_loop
+.parse_width_end:
+	
+
+.parse_size:			; parse length 'll' specificator
+	cmp word [esi], 'll'
+	jne .parse_type
+	or ebx, FLAG_LL
+	add esi, 2
 
 .parse_type:
+	cmp byte [esi], 'i'
+	je .type_signed
+	cmp byte [esi], 'd'
+	je .type_signed
+	cmp byte [esi], 'u'
+	je .type_unsigned
+	cmp byte [esi], '%'
+	je .type_percent
+	
+.type_signed:
+
+.type_unsigned:
+
+.type_percent:
+	jmp .print_char
 	
 
 .char_plus:
@@ -84,11 +113,11 @@ hw_sprintf:
         jmp .parse_flags
 
 .print_char:
-	mov byte [edi], dl		; cur char is not special, so just
+	mov byte [edi], byte [esi]	; cur char is not special, so just
 	inc edi				; print it to *out and inc both
 	inc esi				; edi and esi pointers
 
-        cmp dl, 0x0			; if   current char from format is '\0'
+        cmp byte [esi], '0'		; if current char from format is '\0'
         je .return			; then prepare to exit from function
         jmp .main_loop			; else continue main loop
 
