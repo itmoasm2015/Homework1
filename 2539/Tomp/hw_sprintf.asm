@@ -165,23 +165,30 @@ ullformat:
         add esp, 12
         test bl, ALIGN_LEFT
         jz ..@alignRight
+        mov cl, bh
+        mov edi, [ebp + 12]
+        cld
+        repnz scasb
+        mov al, ' '
+        dec edi
+        inc cl
+        rep stosb
+        mov byte [edi], 0
         jmp .exit
 ..@alignRight:
+        inc bh
         mov esi, [ebp + 12]
         test bl, ZERO_ALIGN
         jz ..@doTheJob
         test bl, ALWAYS_SIGN
         jz ..@doTheJob
         inc esi
-        test bh, bh
-        jz ..@doTheJob
         dec bh
 ..@doTheJob:
         mov edi, esi
-        xor al, al
         mov cl, bh
         cld
-        repne scasb
+        repnz scasb
         mov esi, edi
         add edi, ecx
         sub bh, cl
