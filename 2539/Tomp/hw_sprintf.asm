@@ -13,7 +13,6 @@ div10:
         ; edx:eax - quotient
         ret
 
-global ulltoa
 ulltoa:
         push ebp
         mov ebp, esp
@@ -48,20 +47,15 @@ ulltoa:
         pop ebp
         ret
 
-global ullformat
 ullformat:
         push ebp
         mov ebp, esp
 
-        push ebx
         push esi
         push edi
+        push ebx
         xor ebx, ebx
         xor ecx, ecx
-        mov esi, [ebp + 8]
-        mov edi, [ebp + 12]
-
-        inc esi
 .flags:
         lodsb
         cmp al, '+'
@@ -108,15 +102,16 @@ ullformat:
 .type:
         cmp al, '%'
         jne ..@aNumber
-        mov edi, [ebp + 12]
         stosb
         jmp .exit
 ..@aNumber
         mov cl, al
-        mov eax, [ebp + 16]
+        mov eax, [esp]
+        lea edx, [eax + 4]
+        mov eax, [eax]
         test bl, LONG_LONG
         jz ..@notLong
-        mov edx, [ebp + 20]
+        mov edx, [edx]
         jmp ..@checkSigned
 ..@notLong:
         xor edx, edx
@@ -163,10 +158,11 @@ ullformat:
         push eax
         call ulltoa
         add esp, 12
+        or bl, PROCEED
         test bl, ALIGN_LEFT
         jz ..@alignRight
         mov cl, bh
-        mov edi, [ebp + 12]
+        mov edi, [esp + 4]
         cld
         repnz scasb
         mov al, ' '
@@ -177,7 +173,8 @@ ullformat:
         jmp .exit
 ..@alignRight:
         inc bh
-        mov esi, [ebp + 12]
+        mov edx, esi
+        mov esi, [esp + 4]
         test bl, ZERO_ALIGN
         jz ..@doTheJob
         test bl, ALWAYS_SIGN
@@ -198,6 +195,7 @@ ullformat:
         rep movsb
         mov ecx, edi
         sub ecx, esi
+        mov esi, edx
         test bl, ZERO_ALIGN
         jz ..@spaceAlign
         mov al, '0'
@@ -207,9 +205,48 @@ ullformat:
 ..@doClean:
         rep stosb
 .exit:
+        mov cl, bl
+        pop ebx
+        test cl, PROCEED
+        jz ..@jumpBack
+        add ebx, 4
+        test cl, LONG_LONG
+        jz ..@jumpBack
+        add ebx, 4
+..@jumpBack:
+        mov esp, ebp
+        pop ebp
+        ret
+
+global hw_sprintf
+hw_sprintf:
+        push ebp
+        mov ebp, esp
+        push esi
+        push edi
+        push ebx
+
+        mov edi, [ebp + 8]
+        mov esi, [ebp + 12]
+        lea ebx, [ebp + 16]
+.loop:
+        lodsb
+        test al, al
+        jz .exit
+        cmp al, '%'
+        jne ..@justPrint
+        call ullformat
+        mov cl, 127
+        cld
+        repnz scasb
+        jmp .loop
+..@justPrint:
+        stosb
+        jmp .loop
+.exit:
+        pop ebx
         pop edi
         pop esi
-        pop ebx
         mov esp, ebp
         pop ebp
         ret
@@ -221,3 +258,4 @@ ALIGN_LEFT equ 4
 ZERO_ALIGN equ 8
 LONG_LONG equ 16
 SIGNED equ 32
+PROCEED equ 64

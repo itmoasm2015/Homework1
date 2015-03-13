@@ -1,16 +1,12 @@
 #include "stdio.h"
 #include "unistd.h"
 #include "string.h"
-
-void ullformat(char *fmt, char *dest, ...);
-
-void ulltoa(unsigned long long number, char *dest);
+#include "../../include/hw1.h"
 
 char buf[30];
 
 int main() {
-    ullformat("%-+0 20d", buf, (int)-32767);
-    //ulltoa(-2, buf);
+    hw_sprintf(buf, "Some magic output =%-+0 20d", (int)-32767);
     write(1, buf, strlen(buf));
     return 0;
 }
