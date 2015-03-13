@@ -1,6 +1,6 @@
 section .text
 
-udiv10:
+div10:
         ; edx:eax - the number
         mov ecx, eax
         mov eax, edx
@@ -9,7 +9,6 @@ udiv10:
         xchg eax, ecx
         div ebx
         xchg ecx, edx
-
         ; ecx - remainder
         ; edx:eax - quotient
         ret
@@ -20,14 +19,13 @@ ulltoa:
         mov ebp, esp
 
         push ebx
-        push ecx
         mov ebx, 10
         mov eax, [ebp + 8]
         mov edx, [ebp + 12]
         mov edi, [ebp + 16]
 .move:
         inc edi
-        call udiv10
+        call div10
         test edx, edx
         jnz .move
         test eax, eax
@@ -37,7 +35,7 @@ ulltoa:
         mov edx, [ebp + 12]
 .put:
         dec edi
-        call udiv10
+        call div10
         add cl, '0'
         mov byte [edi], cl
         test edx, edx
@@ -45,7 +43,6 @@ ulltoa:
         test eax, eax
         jnz .put
 
-        pop ecx
         pop ebx
         mov esp, ebp
         pop ebp
@@ -56,10 +53,9 @@ ullformat:
         push ebp
         mov ebp, esp
 
-        push eax
         push ebx
-        push ecx
-        push edx
+        push esi
+        push edi
         xor ebx, ebx
         xor ecx, ecx
         mov esi, [ebp + 8]
@@ -116,38 +112,57 @@ ullformat:
         stosb
         jmp .exit
 ..@aNumber
-        ; cmp al, 'i'
-        ; je .signed
-        ; cmp al, 'd'
-        ; je .signed
-        ; cmp al, 'u'
-        ; if invalid, the whole thing is
+        mov cl, al
         mov eax, [ebp + 16]
         test bl, LONG_LONG
-        jnz ..@longLong
-        xor edx, edx
-        jmp .printUll
-..@longLong:
+        jz ..@notLong
         mov edx, [ebp + 20]
+        jmp ..@checkSigned
+..@notLong:
+        xor edx, edx
+..@checkSigned:
+        cmp cl, 'i'
+        je .printSigned
+        cmp cl, 'd'
+        je .printSigned
+        ; cmp al, 'u'
+        ; if invalid, the whole thing is
 .printUll:
         test bl, PLUS
         jz ..@spaceSignUll
         mov byte [edi], '+'
         inc edi
-        jmp ..@doPrintUll
+        jmp .align
 ..@spaceSignUll:
         test bl, SPACE_SIGN
-        jz ..@doPrintUll
+        jz .align
         mov byte [edi], ' '
         inc edi
-..@doPrintUll:
+        jmp .align
+.printSigned:
+        cmp edx, 0
+        jg ..@printPlus
+        jnz ..@printMinus
+        cmp eax, 0
+        jge ..@printPlus
+..@printMinus:
+        or bl, PLUS
+        mov byte [edi], '-'
+        inc edi
+        neg eax
+        neg edx
+        jmp .align
+..@printPlus:
+        test bl, PLUS
+        jz .align
+        mov byte [edi], '+'
+        inc edi
+.align:
         push edi
         push edx
         push eax
         call ulltoa
         add esp, 12
-        jmp .align
-.align:
         test bl, ALIGN_LEFT
         jz ..@alignRight
         jmp .exit
@@ -185,10 +200,9 @@ ullformat:
 ..@doClean:
         rep stosb
 .exit:
-        pop edx
-        pop ecx
+        pop edi
+        pop esi
         pop ebx
-        pop eax
         mov esp, ebp
         pop ebp
         ret

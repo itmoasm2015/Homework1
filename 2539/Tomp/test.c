@@ -1,4 +1,6 @@
 #include "stdio.h"
+#include "unistd.h"
+#include "string.h"
 
 void ullformat(char *fmt, char *dest, ...);
 
@@ -7,8 +9,8 @@ void ulltoa(unsigned long long number, char *dest);
 char buf[30];
 
 int main() {
-    ullformat("% %", buf, (int)-2);
+    ullformat("% +50d", buf, (int)-65536);
     //ulltoa(-2, buf);
-    printf("%s", buf);
+    write(1, buf, strlen(buf));
     return 0;
 }
