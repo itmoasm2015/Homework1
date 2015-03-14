@@ -20,7 +20,7 @@ hw_sprintf:
     mov [edi], al
     inc edi
 
-.zaloop:
+.check_null:
     test al, al
     je .return
     inc esi
@@ -47,7 +47,7 @@ hw_sprintf:
     dec ecx
     test ecx, ecx
     jnz .reverse_get
-    jmp .zaloop
+    jmp .check_null
 
 .return:
     pop edi
