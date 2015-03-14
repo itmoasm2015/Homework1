@@ -33,11 +33,12 @@ hw_sprintf:
         cmp byte [esi], '%'	; if current char is not escaping '%' sign
         jne .print_char		; just print it to *out
 
-        xor ebx, ebx            ; else clear format flags
-        je .parse               ; and parse format
+        xor ebx, ebx            ; else clear format flags and parse format
 
-.parse_flags:			; start parsing flags
-        inc esi			; skip format char
+.parse_flags:
+	push esi		; save '%' position (will return here if format string is invalid)
+;;; TODO: remove esi from stack while debug
+        inc esi			; skip '%' char
 
         cmp byte [esi], '+'
         je .char_plus
@@ -59,7 +60,7 @@ hw_sprintf:
 	cmp byte [esi], '9'	; skip
 	jg .parse_width_end	; it
 
-	lea edx, [edx + 4*edx]	; edx *= 5
+	lea edx, [edx * 5]	; edx *= 5
 	shl edx, 1		; edx *= 2
 
 	xor eax, eax		
@@ -96,6 +97,7 @@ hw_sprintf:
 	jmp .print_char
 	
 
+;;; format flags
 .char_plus:
         or ebx, FLAG_PLUS
         jmp .parse_flags
@@ -105,19 +107,19 @@ hw_sprintf:
         jmp .parse_flags
 
 .char_hyphen:
-        or ebx, FLAG_MINUS
+        or ebx, FLAG_HYPHEN
         jmp .parse_flags
 
 .char_zero:
         or ebx, FLAG_ZERO
         jmp .parse_flags
+;;; end format flags
 
 .print_char:
-	mov byte [edi], byte [esi]	; cur char is not special, so just
-	inc edi				; print it to *out and inc both
-	inc esi				; edi and esi pointers
+	movsb	 			; mod [edi], [esi]; inc edi; inc esi
+					; cur char is not special, so just
 
-        cmp byte [esi], '0'		; if current char from format is '\0'
+        cmp byte [esi], 0		; if current char from format is '\0'
         je .return			; then prepare to exit from function
         jmp .main_loop			; else continue main loop
 
