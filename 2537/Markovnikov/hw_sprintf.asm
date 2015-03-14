@@ -13,6 +13,9 @@ LONG_FLAG   equ 1 << 4  ; means that number is 64-bit type
 WIDTH_FLAG  equ 1 << 5  ; is used for setting width of the number
 SIGN_FLAG   equ 1 << 6  ; shows that number is negative
 
+section .data
+    CONST10:     dd    10
+
 %define testflag(f) test ch, f
 %define setflag(f) or ch, f
 %define setchar(c) mov cl, c
@@ -38,7 +41,9 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         neg eax         ; take abs
 %endmacro
 
-%macro sfl 1
+; macro for setting flag
+
+%macro sfl 1            
      setflag(%1)
      jmp .start_parse_percent
 %endmacro
@@ -61,9 +66,11 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         je  .zero_or_space
     %endmacro
 
-    ; help_function to know a size of the number
+    ; help function to know a size of the string 
+    ; ebx - size of the number
+    ; other arguments like in print_num function
     find_digits:
-         setfl          ; set all flags that are possible
+        setfl          ; set all flags that are possible
     .test_long_s:
         testflag(LONG_FLAG)
         jz .change_sign_s 
@@ -97,9 +104,9 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         
     ; void hw_sprintf(char *out, char const *format, ...)
     ; arguments:
-    ;	out_str - out
-	;	esi - format
-	;	ebx - first argument
+    ;       out_str - out
+	;       esi - format
+	;       ebx - first argument
     hw_sprintf:
         push ebx
         push esi
@@ -137,7 +144,7 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
     .compare_with_l:        ; if it's long
         compchar('l')
         je .if_found_l
-    .compare_digit_flags:   ; parse flags for difits like %, u, d, i
+    .compare_digit_flags:   ; parse flags for digits like %, u, d, i
         compchar('%')
         je .parse_percent_again
         compchar('u')
@@ -280,6 +287,10 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         ret
         
     ; prints number of fixed length      
+    ; Takes:
+    ;           eax - number
+    ;           ebx - width
+    ; Returns:  esi - output string 
     write_result:
         push ebx
         push eax
@@ -289,9 +300,9 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         mov edx, dword [esp + 16]   ; low half
         mov ebx, dword [esp + 20]
         cmp ebx, dword [esp + 24]
-        jge .test_LONG_FLAG
+        jge .test_long_flag
         mov ebx, dword [esp + 24]
-    .test_LONG_FLAG:
+    .test_long_flag:
         testflag(LONG_FLAG)
         jz .set_sign_s
         xchg eax, edx
@@ -299,9 +310,9 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         setfl
     .test_long_s:
         testflag(LONG_FLAG)
-        jz .test_MINUS_FLAG 
+        jz .test_minus_flag 
         xchg eax, edx
-    .test_MINUS_FLAG:
+    .test_minus_flag:
         push ecx
         testflag(MINUS_FLAG)
         jz .write_minus_char_case
@@ -326,10 +337,10 @@ SIGN_FLAG   equ 1 << 6  ; shows that number is negative
         mov ecx, 10                 ; for div 10
         push ebx
         f_take_digits
-    .add_some_zeroes:       ; add zeroes before number
+    .add_some_zeroes:              ; add zeroes before number
         xor edx, edx
         div ecx
-        add dl, '0'         ; print zero
+        add dl, '0'                ; print zero
         mov byte [esi], dl
         dec esi
         cmp eax, 0
