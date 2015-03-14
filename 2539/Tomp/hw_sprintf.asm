@@ -97,7 +97,6 @@ ullformat:
         cmp al, 'l'
         jne .invalidSequence
         or bl, LONG_LONG
-        inc esi
         lodsb
 .type:
         cmp al, '%'
@@ -255,6 +254,7 @@ hw_sprintf:
         stosb
         jmp .loop
 .exit:
+        mov byte [edi], 0
         pop ebx
         pop edi
         pop esi

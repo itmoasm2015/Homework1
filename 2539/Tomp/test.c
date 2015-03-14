@@ -5,8 +5,12 @@
 
 char buf[30];
 
+#define test(...) hw_sprintf(buf, __VA_ARGS__); printf("%s|\n", buf)
+
 int main() {
-    hw_sprintf(buf, "Some magic output =%-+0 20d", (int)-32767);
-    write(1, buf, strlen(buf));
+    test("%+10-0000d");
+    test("%ll %d", 123);
+    test("%-%%d", 123);
+    test("% l%d", 123);
     return 0;
 }
