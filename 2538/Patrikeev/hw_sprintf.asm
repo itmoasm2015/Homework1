@@ -21,66 +21,69 @@ hw_sprintf:
     push    ebp         ;;save caller's stack frame
     mov     ebp, esp    ;;establish new stack frame
 
-    push    ebx
+    push    ebx         ;;save callee-saved registers
     push    edi
     push    esi
-
+    
     mov     edi, [ebp + 8]  ;;1-st param (*out)
     mov     esi, [ebp + 12] ;;2-d parameter (*format)
 
+;;allocate new "variable" that points to next number to be printed   
+;;so [ebp-.ptr] contains address of next argument (int or long long whatever)
+    .ptr    equ 4       ;;for easy way to get variable
+    sub     esp, 4      ;;get room for ptr
+    mov     eax, [ebp + 16]         
+    mov     [ebp-.ptr], eax ;;load address of the first number (3-d parameter of hw_sprintf)
+        
     xor     eax, eax        ;;clear room for chars
 .read_until_eol:
-    xor     ecx, ecx        ;;ecx holds chars length
+    xor     ecx, ecx        ;;ecx holds chars length (and number of pushed elements)
 
     mov     byte al, [esi]  ;;load next char
+    inc     esi             ;;move (*format) pointer
     push    eax             ;;push char to be printed in future if error occurs
     inc     ecx             ;;one more char...
-    inc     esi             ;;move (*format) pointer
-    cmp     byte al, 0
-    je      .print_pushed_chars ;;if EOL, then print '\0' char to (*out) and exit
-
-    mov     byte al, [esi]  ;;load next char
-    push    eax             ;;push char to be printed in future if error occurs
-    inc     ecx             ;;one more char...
-    inc     esi             ;;move (*format) pointer
+    cmp     byte al, 0      ;;if EOL, then print '\0' to (*out) and exit
+    je      .print_pushed_chars
     cmp     byte al, '%'    ;;check if start of format string
     jne     .print_pushed_chars ;;if not, then just print this char
 
 ;;check if next char is also '%': if yes, then just print it correctly
-    mov     byte al, [esi]  ;;load next char
+    mov     byte al, [esi]  ;;peek next char if it is '%' too
     inc     esi             ;;move (*format) pointer
     cmp     byte al, '%'    
-    je      .print_pushed_chars     ;;print only one '%'
-    push    eax             ;;else push it as regular
-    inc     ecx             ;;and increment number of chars to be printed
+    je      .print_pushed_chars     ;;print only one '%' and go to next char if any
+    dec     esi             ;;else unread peeked char
     
 ;;this label reads format string and sets flags:
     xor     ebx, ebx        ;;ebx holds encountered flags 
     xor     edx, edx        ;;edx holds format's width
 .read_format_chars:
     mov     byte al, [esi]  ;;load next char 
+    inc     esi             ;;move (*format) pointer
     push    eax             ;;push char to be printed in future
     inc     ecx             ;;one more char to be printed
-    inc     esi             ;;move (*format) pointer
     cmp     byte al, 0      
     je      .print_pushed_chars ;;if EOL, then print all already pushed chars and exit
 
-    ;;check flags and set those one which have been encountered 
+;;check flags and set those one which have been encountered:
+;;and move (*format) pointer properly
     cmp     byte al, '+'
-    je      set_plus_flag
+    je      set_plus_flag    ;;set plus_flag and jump to .plus_flag_checked
 .plus_flag_checked:
 
     cmp     byte al, '-'
-    je      set_minus_flag
+    je      set_minus_flag   ;;set minus_flag and jump to .minus_flag_checked
 .minus_flag_checked:
 
     cmp     byte al, '0'
-    je      set_zero_flag
+    je      set_zero_flag    ;;set zero_flag and jump to .zero_flag_checked
 .zero_flag_checked:
 
     cmp     byte al, ' '
-    je      set_space_flag
+    je      set_space_flag   ;;set space_flag and jump to .space_flag_checked
 .space_flag_checked:
+
 
 ;;checks if digits sequence ("width") and parses it
 .parse_width:
@@ -96,8 +99,8 @@ hw_sprintf:
     shl     edx, 1          ;;edx *= 2
     add     edx, eax        ;;edx += digit
 
-    inc     esi             ;;move (*format) pointer to next char
     mov     byte al, [esi]  ;;load next char
+    inc     esi             ;;move (*format) pointer to next char
     push    eax             ;;push char to be printed if error occurs
     inc     ecx             ;;one more char...
     cmp     al, 0           ;;if EOL(incorrect format sequence) then just print all pushed chars
@@ -132,15 +135,15 @@ hw_sprintf:
     je      .type_checked
 
     cmp     byte al, 'u'
-    je      set_unsigned_flag
-.unsigned_flag_checked:
+    je      set_unsigned_flag   ;;set unsign_flag and jump to .unsigned_flag_checked
 
     ;;'%%' has been checked earlier
-
-    ;;specifiers are incorrect => print encountered chars
+    ;;we have not encountered any of available types => error => print chars
     jmp     .print_pushed_chars
 
 .type_checked:
+.unsigned_flag_checked:
+
 ;;all specifiers are OK, do the main work:
 
      
@@ -149,18 +152,22 @@ hw_sprintf:
 ;;and then moves [edi] by the number of printed chars
 .print_pushed_chars:
     mov     ebx, ecx                  ;;save number of chars to be printed
+    xor     edx, edx                  ;;edx == 1 if we should exit after this loop, else we should go to next char
 .loop_print_chars:
     cmp     ecx, 0                    ;;check if there are any chars to be printed
     je      .end_print_pushed_chars   ;;no chars to be printed
     pop     eax                       ;;get next char to be printed(reverse order)
     mov     byte [edi + ecx - 1], al  ;;write char from the end of room(to get forward order)
     dec     ecx                       ;;one less char 
-    jmp     .loop_print_chars
+    cmp     byte al, 0                ;;if current char == '\0', then we should exit after printing all chars
+    jne     .loop_print_chars
+    mov     edx, 1                    ;;set flag about exit
+    jmp     .loop_print_chars         ;;and continue to write the rest of bytes 
 
 .end_print_pushed_chars:
     add     edi, ebx                  ;;move (*out) by number of chars which are printed 
-    
-    jmp     .read_until_eol           ;;go to a next char
+    cmp     edx, 0                    ;;if we should continue, then do continue, else end of format string
+    je      .read_until_eol
 
 .end_read_until_eol:
 ;;we have proceed the whole format string
@@ -173,29 +180,47 @@ hw_sprintf:
     pop     ebp         ;;restore caller's stack frame
     ret
 
+;;these labels are convenient way to set flag if it has been encountered
+;;and move pointer to next char properly
 set_plus_flag:
     set_flag(plus_flag)
+    mov     byte al, [esi] ;;load next after '+' char
+    inc     esi            ;;move (*format)
+    push    eax            ;;push char to be printed in future
+    inc     ecx            ;;one more char...
     jmp hw_sprintf.plus_flag_checked
     
 set_minus_flag:
     set_flag(minus_flag)
+    mov     byte al, [esi] ;;load next after '-' char
+    inc     esi            ;;move (*format)
+    push    eax            ;;push char to be printed in future
+    inc     ecx            ;;one more char...
     jmp hw_sprintf.minus_flag_checked
 
 set_zero_flag:
     set_flag(zero_flag)
+    mov     byte al, [esi] ;;load next after '0' char
+    inc     esi            ;;move (*format)
+    push    eax            ;;push char to be printed in future
+    inc     ecx            ;;one more char...
     jmp hw_sprintf.zero_flag_checked
 
 set_space_flag:
     set_flag(space_flag)
+    mov     byte al, [esi] ;;load next after ' ' char
+    inc     esi            ;;move (*format)
+    push    eax            ;;push char to be printed in future
+    inc     ecx            ;;one more char...
     jmp hw_sprintf.space_flag_checked
-
-set_long_flag:
-    set_flag(long_flag)
-    jmp hw_sprintf.long_flag_checked
 
 set_unsigned_flag:
     set_flag(unsign_flag)
     jmp hw_sprintf.unsigned_flag_checked
+
+set_long_flag:
+    set_flag(long_flag)
+    jmp hw_sprintf.long_flag_checked
 
 
 ;; print_unsigned_long: push    ebp

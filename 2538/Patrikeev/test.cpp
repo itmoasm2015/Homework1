@@ -4,14 +4,14 @@
 #include <memory.h>
 
 int main() {
+
     char out[256];
-    memset(out, 0, sizeof(out));
+ //   hw_sprintf(out, "Hello, I am a cool string!!!!!!!!!");
+    hw_sprintf(out, "% 10d");
 
-    hw_sprintf(out, "Hello %d xyz %u %f", (unsigned long long) 283686952306183);
-    
-    printf("\n%+010d|\n", 10);
-
-
+    for (int i = 0; i < 50; i++) {
+        printf("%c ", out[i]);
+    }
 
     return 0;
 }
