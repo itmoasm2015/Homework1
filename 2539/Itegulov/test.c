@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <time.h>
 
 #define TEST(count, total, format, ...) { \
     char str[1000], str2[1000]; \
@@ -24,9 +23,28 @@ long long lldata[] = {0, 1, -1, 123456789, 987654321, 0x80000000, 0xffffffff, 0x
 unsigned long long ulldata[] = {0, 1, 123456789, 987654321, 0x7fffffff, 0xff00000000, 0xffffffffffffffff, 0x8000000000000000, 0x7fffffffffffffff};
 
 int main() {
-    
+    //printf("%d\n", hw_strlen("abacaba"));
+    /*
+    char buf[1024];
+    hw_itoa(-15, buf);
+    printf("latex: '%s'\n", buf);
+    hw_itoa(20, buf);
+    printf("heh: '%s'\n", buf);
+    hw_itoa(0, buf);
+    printf("%s\n", buf);
+    int res = hw_itoa(29384723, buf);
+    printf("%d : %s\n", res, buf);
+    res = hw_itoa(-2384722, buf);
+    printf("%d : %s\n", res, buf);
+
+    res = hw_luitoa(1, buf);
+    printf("%d : %s\n", res, buf);
+    */
+    char buf[1024];
+    int res = hw_luitoa(34857693450LL, buf);
+    printf("%d : %s\n", res, buf);
+    /*    
     int a = 0, b = 0;
-    int time1;
     TEST(a, b, "lel", 0)
     TEST(a, b, "%%", 0)
     TEST(a, b, "%+- 0123124%", 0)
@@ -49,7 +67,6 @@ int main() {
     printf("got %d/%d tests good\n", a, b);
     
     printf("time to wait\n");
-    time1 = clock();
     char dest_str[500];
     for(int i = 0; i < 5000000; i++) {
         hw_sprintf(dest_str, "%030lli %030lli %-30i %-30i", (long long) i, 0x0fffffffffffffffll, i, -i);
@@ -57,8 +74,8 @@ int main() {
     
     char* bs = (char*) malloc(1000000);
     hw_sprintf(bs, "%0999999i", 1);
-    printf("time: %d\n", (clock() - time1) / (CLOCKS_PER_SEC / 1000));
+    printf("long len %d\n", strlen(bs));
     free(bs);
-    
+    */
     return 0;
 }

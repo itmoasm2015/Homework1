@@ -1,5 +1,4 @@
 
-
 ; flags for sprintf
 ; LONG and SIGNED have to always be 1 and 2 respectively, otherwise things will break horribly
 %define FLAG_LONG   1
@@ -334,8 +333,8 @@ hw_ltoa:
 
 ; void hw_sprintf(char *, const char *, ...)
 ; hw_sprintf as required by hw1.pdf
-global _hw_sprintf
-_hw_sprintf:
+global hw_sprintf
+hw_sprintf:
     push ebp
     mov ebp, esp
     
