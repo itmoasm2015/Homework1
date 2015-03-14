@@ -66,7 +66,7 @@ section .data
         je  .zero_or_space
     %endmacro
 
-    ; help_function to know a size of the string 
+    ; help function to know a size of the string 
     ; ebx - size of the number
     ; other arguments like in print_num function
     find_digits:
@@ -104,9 +104,9 @@ section .data
         
     ; void hw_sprintf(char *out, char const *format, ...)
     ; arguments:
-    ;	out_str - out
-	;	esi - format
-	;	ebx - first argument
+    ;       out_str - out
+	;       esi - format
+	;       ebx - first argument
     hw_sprintf:
         push ebx
         push esi
