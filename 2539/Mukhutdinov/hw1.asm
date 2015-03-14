@@ -2,7 +2,7 @@
               push  ebx
               push  esi
               push  edi
-              enter %0, %1
+              enter %1, %2
 %endmacro
 
 %macro CDECL_RET 0
@@ -13,9 +13,19 @@
               ret
 %endmacro
 
+%macro JCOND 4
+	      cmp   %2, %3
+	      j%1   %4
+%endmacro
+	      
+%macro JIFE 3
+	      JCOND e, %1, %2, %3
+%endmacro
+	      
 ;; Definitions of control sequence parser flags
 ;;
 ;; Flags are stored in EBX register after parsing control sequence
+;; (actually, they fit in BL, what gives us an opportunity to use BH for other needs)
 %define FLAG_SIGN_ANYWAY        1   ; '+'
 %define FLAG_PUT_WHITESPACE     2   ; ' '
 %define FLAG_LEFT_ALIGN         4   ; '-'
@@ -23,6 +33,15 @@
 %define FLAG_LONG_LONG          16  ; 'll'
 %define FLAG_UNSIGNED           32  ; 1 if 'u', 0 otherwise
 
+;; Convenience macros
+%define	TEST_FLAG(fl) test bl, fl
+%define SET_FLAG(fl)  or   bl, fl
+
+%macro JFLAG 2
+	      TEST_FLAG(%0)
+	      jnz   %1
+%endmacro
+	      
 global hw_sprintf, hw_uitoa, hw_itoa
 
 section .bss
@@ -46,14 +65,14 @@ hw_sprintf:
               CDECL_ENTER 0, 0
               mov   edi, [ebp+20]   ; output string
               mov   esi, [ebp+24]   ; format string
-
+	      lea   edx, [esp+28]   ; Store next argument address in EDX
+	      xor   eax, eax        ; Reset EAX - though we use only AL to store current symbol,
+				    ; we'll need full EAX to count LEA at line 127
 .main_loop:
               mov   al, [esi]
-              cmp   al, 0           ; Test for null-character (end of string)
-              je    .finish
+	      JIFE  al, 0, .finish  ; Test for null-character (end of string)
 
-              cmp   al, '%'         ; Check for control sequence beginning
-              je    .start_parsing
+	      JIFE  al, '%', .start_parsing ; Check for control sequence beginning
 
               mov   [edi], al       ; Copy ordinary characters
               inc   esi
@@ -61,7 +80,7 @@ hw_sprintf:
               jmp   .main_loop
               
 .start_parsing:
-              inc   esi             ; Start control sequence parsing
+	      ;; Start control sequence parsing
               call  __parse_sequence
               jmp   .main_loop
 
@@ -77,15 +96,82 @@ hw_sprintf:
 ;; Takes:
 ;; esi -- address of beginning of the control sequence
 ;; edi -- output string address
+;; edx -- address of current argument
 ;;
 ;; Returns:
 ;;
 ;; esi -- address of part of format string part after control sequence
 ;; edi -- address of the rest of the output string
+;; edx -- address of next argument
 __parse_sequence:
-              ; TODO
+	      push  esi             ; Save current position in format string in case of parsing failure
+	      xor   ebx, ebx        ; Reset flags
+.flags_loop:
+	      inc   esi             ; We are on '%' symbol now, go further
+	      mov   al, [esi]
 
-              
+	      ;; Check for all possible flags
+	      JIFE  al, '+', .set_p
+	      JIFE  al, ' ', .set_ws
+	      JIFE  al, '-', .set_minus
+	      JIFE  al, '0', .set_zero
+
+	      ;; Read width to ECX if it is present (non-present width == width 0)
+	      xor   ecx, ecx
+.width_loop:
+	      ;; If current character is not digit, finish it
+	      JCOND b, al, '0', .width_loop_finish
+	      JCOND a, al, '9', .width_loop_finish
+
+	      lea   ecx, [ecx*5]         ; Do ecx := ecx*10 + eax - '0' in two steps
+	      lea   ecx, [ecx*2+eax-'0'] ; because of limitations of addressing mode
+	      inc   esi
+	      mov   al, [esi]
+	      jmp   .width_loop
+	      
+.width_loop_finish:	      
+	      ;; Try to set 'll' flag
+	      JIFE  al, 'l', .check_ll
+.check_type:  
+	      ;; Check type
+	      JIFE  al, 'u', .set_unsigned
+	      JIFE  al, 'i', .write_number
+	      JIFE  al, 'd', .write_number
+	      JIFE  al, '%', .write_percent
+
+.failed:
+	      ;; If we didn't jumped out of there, this means that control sequence is invalid
+	      pop   esi             ; Restore beginning of control seq
+	      jmp   .write_percent  ; Write initial '%' to output and skip it
+.set_p:
+	      SET_FLAG(FLAG_SIGN_ANYWAY)
+	      jmp   .flags_loop
+.set_ws:
+	      SET_FLAG(FLAG_PUT_WHITESPACE)
+	      jmp   .flags_loop
+.set_minus:
+	      SET_FLAG(FLAG_LEFT_ALIGN)
+	      jmp   .flags_loop
+.set_zero:
+	      SET_FLAG(FLAG_PAD_WITH_ZEROES)
+	      jmp   .flags_loop
+.check_ll:
+	      inc   esi
+	      mov   al, [esi]
+	      JCOND ne, al, 'l', .failed ; If we have something except 'l' after 'l', then control sequence is invalid
+	      
+	      SET_FLAG(FLAG_LONG_LONG)
+	      jmp   .check_type
+.set_unsigned:
+	      SET_FLAG(FLAG_UNSIGNED)
+.write_number:
+	      
+.write_percent:
+	      mov   [edi], byte '%' ; Write '%' to output
+	      inc   esi             ; Move ESI to skip '%' on next main loop iteration
+	      inc   edi
+	      ret
+	      
 ;; void hw_uitoa(int a, char* out);
 ;;
 ;; Makes string representation of an 32-bit unsigned integer
@@ -137,7 +223,7 @@ hw_itoa:
 
               CDECL_RET
 
-,
+	      
 ;; __hw_ultoa -- inner non-cdecl function
 ;;
 ;; Produces a string out of unsigned long long
@@ -173,8 +259,7 @@ __hw_ultoa:
               pop   edx             ; Restore the whole 64-bit quotient
 
               test  edx, edx        ; Test if both
-              je    .t2             ; halves of
-              jmp   .rec            ; quotient are
+              jne   .rec            ; halves of quotient are             
 .t2:                                ; zeroes, and
               test  eax, eax        ; stop recursion,
               je    .return         ; if so

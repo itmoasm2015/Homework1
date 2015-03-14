@@ -9,3 +9,7 @@ test: test.o hw1.o
 
 %.o: %.asm
 	yasm -f elf32 -g dwarf2 -o $@ $^
+
+clean: 
+	rm -f *.o test
+
