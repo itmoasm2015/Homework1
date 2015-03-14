@@ -23,12 +23,14 @@ long long lldata[] = {0, 1, -1, 123456789, 987654321, 0x80000000, 0xffffffff, 0x
 unsigned long long ulldata[] = {0, 1, 123456789, 987654321, 0x7fffffff, 0xff00000000, 0xffffffffffffffff, 0x8000000000000000, 0x7fffffffffffffff};
 
 int main() {
-    char out[2048];
-    const char* format = "%0000000+9ll%";
-    hw_sprintf(out, format);
-    printf("%s -> %s\n", format, out);
+    //printf("%i> %03u %+03i %03llu %+03lld", 0, 0, 0, 0, 0);
+    //char out[2048];
+    //const char* format = "%i> %030u %+030i %030llu %+030lld";
+    //const char* format = "%i";
+    //hw_sprintf(out, format, 0, 0, 0, 0, 0);
+    //printf("%s -> '%s'\n", format, out);   
     
-/*    int a = 0, b = 0;
+   int a = 0, b = 0;
     TEST(a, b, "lel", 0)
     TEST(a, b, "%%", 0)
     TEST(a, b, "%+- 0123124%", 0)
@@ -45,7 +47,7 @@ int main() {
         TEST(a, b, "%i> %0-30u %0-30i %0-30llu %0-30lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
         TEST(a, b, "%i> %-30u % -30i %-30llu % -30lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
         TEST(a, b, "%i> %-30u % -+30i %-30llu % -+30lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
-        TEST(a, b, "%i> %030u %+030i %030llu %+030lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
+        TEST(a, b, "%i> %03u %+03i %03llu %+03lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
     }
     
     printf("got %d/%d tests good\n", a, b);
@@ -60,6 +62,6 @@ int main() {
     hw_sprintf(bs, "%0999999i", 1);
     printf("long len %d\n", strlen(bs));
     free(bs);
-*/    
+    
     return 0;
 }
