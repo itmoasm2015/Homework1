@@ -1,7 +1,6 @@
 section .text
 
-div10:
-        ; edx:eax - the number
+div10:  ; divide edx:eax by 10
         mov ecx, eax
         mov eax, edx
         xor edx, edx
@@ -13,26 +12,31 @@ div10:
         ; edx:eax - quotient
         ret
 
-ulltoa:
-        push ebp
+; Print an unsigned long long in decimal representation.
+; Nothing known about the format.
+ulltoa: push ebp
         mov ebp, esp
 
         push ebx
         mov ebx, 10
+        ; Arguments:
+        ;  - edx:eax - the number
+        ;  - edi - the destination
         mov eax, [ebp + 8]
         mov edx, [ebp + 12]
         mov edi, [ebp + 16]
-.move:
+.move:  ; determine the length of number,
+        ; move edi to the end
         inc edi
         call div10
         test edx, edx
         jnz .move
         test eax, eax
         jnz .move
-        mov byte [edi], 0
+        mov byte [edi], 0 ; end of number is here
         mov eax, [ebp + 8]
         mov edx, [ebp + 12]
-.put:
+.put:   ; print the number moving backwards
         dec edi
         call div10
         add cl, '0'
@@ -47,17 +51,21 @@ ulltoa:
         pop ebp
         ret
 
+; Format the number according to record in $esi.
+; Called by hw_sprintf, works with registers in place.
+; Does not get any arguments from stack or preserve registers;
+; ebx, esi and edi are used by hw_sprintf afterwards.
 ullformat:
         push ebp
         mov ebp, esp
 
-        push esi
-        push edi
-        push ebx
+        push esi ; store backups of all
+        push edi ; pointers to turn back
+        push ebx ; in case of a malformed sequence
         xor eax, eax
         xor ebx, ebx
         xor ecx, ecx
-.flags:
+.flags: ; bl will hold a mask with needed booleans
         lodsb
         cmp al, '+'
         je ..@plus
@@ -78,20 +86,20 @@ ullformat:
 ..@minus:
         or bl, ALIGN_LEFT
         jmp .flags
-.width:
+.width: ; ecx will hold the minimum width
         cmp al, '9'
         jg .size
         cmp al, '0'
         jl .size
         sub al, '0'
-        shl ecx, 1
+        shl ecx, 1 ; multiply ecx by 10
         mov edx, ecx
         shl edx, 2
         add ecx, edx
         add ecx, eax
         lodsb
         jmp .width
-.size:
+.size:  ; check for ll prefix
         cmp al, 'l'
         jne .type
         lodsb
@@ -99,7 +107,7 @@ ullformat:
         jne .invalidSequence
         or bl, LONG_LONG
         lodsb
-.type:
+.type:  ; read the number type
         cmp al, '%'
         jne ..@aNumber
         stosb
@@ -107,16 +115,17 @@ ullformat:
         jmp .exit
 ..@aNumber
         mov bh, al
-        mov eax, [esp]
-        lea edx, [eax + 4]
-        mov eax, [eax]
+        mov eax, [esp]     ; ebx was pushed there - it points
+        lea edx, [eax + 4] ; to the next function argument.
+        mov eax, [eax]     ; load the lower part of number
         test bl, LONG_LONG
         jz ..@notLong
-        mov edx, [edx]
+        mov edx, [edx] ; the higher part is on the stack
         jmp ..@checkSigned
 ..@notLong:
-        xor edx, edx
+        xor edx, edx ; the higher part is zero
 ..@checkSigned:
+        ; the character is in bh (eax is occupied)
         cmp bh, 'i'
         je .printSigned
         cmp bh, 'd'
@@ -136,15 +145,18 @@ ullformat:
         inc edi
         jmp .align
 .printSigned:
+        ; first check if the number is negative
         cmp edx, 0
         jg ..@printPlus
         jnz ..@printMinus
         cmp eax, 0
         jge ..@printPlus
 ..@printMinus:
-        or bl, PLUS
+        or bl, PLUS ; the sign is printed anyway; set the flag
         mov byte [edi], '-'
         inc edi
+        ; we have printed the sign;
+        ; let's print the number as a positive one
         neg eax
         neg edx
         jmp .align
@@ -153,8 +165,9 @@ ullformat:
         jz .align
         mov byte [edi], '+'
         inc edi
-.align:
-        push ecx
+.align: 
+        ; first print the number
+        push ecx ; backup width: it will be messed by ulltoa
         push edi
         push edx
         push eax
@@ -162,8 +175,9 @@ ullformat:
         add esp, 12
         pop ecx
         or bl, PROCEED
-        test bl, ALIGN_LEFT
+        test bl, ALIGN_LEFT ; now let's align the number
         jz ..@alignRight
+        ; aligning to the left
         mov edi, [esp + 4]
         cld
         repnz scasb
@@ -177,29 +191,38 @@ ullformat:
         inc ecx
         mov edx, esi
         mov esi, [esp + 4]
+        ; if the empty space is filled with 0,
+        ; the sign should be placed at the beginning
         test bl, ZERO_ALIGN
         jz ..@doTheJob
         test bl, ALWAYS_SIGN
         jz ..@doTheJob
+        ; leave the sign at the beginning
         inc esi
         dec ecx
 ..@doTheJob:
+        ; move towards the end of number
         mov edi, esi
-        push ecx
+        push ecx ; backup the width value
         cld
-        ; xor al, al
         repnz scasb
+        ; place esi here, move edi to the final position
         mov esi, edi
         add edi, ecx
+        ; ecx <- [esp] - ecx; free [esp]
         neg ecx
         add ecx, [esp]
         add esp, 4
         inc ecx
+        ; copy the number to the right (move backwards)
         std
         rep movsb
+        ; fill the remaining space with blank characters:
+        ; first get length of remaining space
         mov ecx, edi
         sub ecx, esi
         mov esi, edx
+        ; determine the blank character
         test bl, ZERO_ALIGN
         jz ..@spaceAlign
         mov al, '0'
@@ -207,15 +230,20 @@ ullformat:
 ..@spaceAlign:
         mov al, ' '
 ..@doClean:
+        ; finally, fill it
         rep stosb
         jmp .exit
 .invalidSequence:
+        ; print '%' as if it was not a special case;
+        ; restore esi to the position next to '%'
         mov esi, [esp + 8]
         mov edi, [esp + 4]
         mov byte [edi], '%'
         mov byte [edi + 1], 0
         inc edi
 .exit:
+        ; check if the argument is consumed;
+        ; move ebx to the right, in this case
         mov cl, bl
         pop ebx
         test cl, PROCEED
@@ -225,11 +253,12 @@ ullformat:
         jz ..@jumpBack
         add ebx, 4
 ..@jumpBack:
+        ; registers are, of course, not preserved
         mov esp, ebp
         pop ebp
         ret
 
-global hw_sprintf
+global hw_sprintf ; see the header
 hw_sprintf:
         push ebp
         mov ebp, esp
@@ -239,14 +268,15 @@ hw_sprintf:
 
         mov edi, [ebp + 8]
         mov esi, [ebp + 12]
-        lea ebx, [ebp + 16]
+        lea ebx, [ebp + 16] ; points to the variadic arguments
 .loop:
         lodsb
         test al, al
-        jz .exit
+        jz .exit       ; end of the C string
         cmp al, '%'
         jne ..@justPrint
-        call ullformat
+        call ullformat ; it pretends to be a sequence
+        ; move edi to the end of output
         mov ecx, 0x7fffffff
         cld
         xor al, al
@@ -265,11 +295,12 @@ hw_sprintf:
         pop ebp
         ret
 
-PLUS equ 1
-SPACE_SIGN equ 2
-ALWAYS_SIGN equ PLUS | SPACE_SIGN
-ALIGN_LEFT equ 4
-ZERO_ALIGN equ 8
-LONG_LONG equ 16
-SIGNED equ 32
-PROCEED equ 64
+; Flags (stored by bl in ullformat):
+PLUS equ 1       ; whether the non-space sign is printed
+SPACE_SIGN equ 2 ; whether the space is printed instead of '+'
+ALWAYS_SIGN equ PLUS | SPACE_SIGN ; whether any sign is printed
+ALIGN_LEFT equ 4 ; align to the left
+ZERO_ALIGN equ 8 ; fill with zeroes
+LONG_LONG equ 16 ; the long long was requested
+SIGNED equ 32    ; print the signed number
+PROCEED equ 64   ; the function argument was consumed
