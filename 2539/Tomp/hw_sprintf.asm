@@ -59,9 +59,9 @@ ullformat:
         push ebp
         mov ebp, esp
 
-        push esi ; store backups of all
-        push edi ; pointers to turn back
-        push ebx ; in case of a malformed sequence
+        push esi ; store backups of all pointers to turn back
+        push edi ; in case of a malformed sequence
+        push ebx
         xor eax, eax
         xor ebx, ebx
         xor ecx, ecx
@@ -165,9 +165,9 @@ ullformat:
         jz .align
         mov byte [edi], '+'
         inc edi
-.align: 
+.align:
         ; first print the number
-        push ecx ; backup width: it will be messed by ulltoa
+        push ecx ; width will be messed by ulltoa; backing up
         push edi
         push edx
         push eax
@@ -175,7 +175,8 @@ ullformat:
         add esp, 12
         pop ecx
         or bl, PROCEED
-        test bl, ALIGN_LEFT ; now let's align the number
+        ; now let's align the number
+        test bl, ALIGN_LEFT
         jz ..@alignRight
         ; aligning to the left
         mov edi, [esp + 4]
@@ -230,7 +231,6 @@ ullformat:
 ..@spaceAlign:
         mov al, ' '
 ..@doClean:
-        ; finally, fill it
         rep stosb
         jmp .exit
 .invalidSequence:
@@ -272,10 +272,11 @@ hw_sprintf:
 .loop:
         lodsb
         test al, al
-        jz .exit       ; end of the C string
+        jz .exit ; end of the C string
         cmp al, '%'
         jne ..@justPrint
-        call ullformat ; it pretends to be a sequence
+        ; it pretends to be a sequence
+        call ullformat
         ; move edi to the end of output
         mov ecx, 0x7fffffff
         cld
