@@ -9,7 +9,7 @@ section .text
 
 SHOW_SIGN		equ 1
 SPACE_BEFORE		equ 1 << 1
-RIGHT_ALIGN		equ 1 << 2
+LEFT_ALIGN		equ 1 << 2
 ZERO_SYMB_COMPL	equ 1 << 3
 WIDTH_SET		equ 1 << 4
 IS_LONG_LONG		equ 1 << 5
@@ -94,7 +94,7 @@ hw_sprintf:
 	jne .check_zero_compl
 
 	mov edx, [flag]
-	or edx, RIGHT_ALIGN
+	or edx, LEFT_ALIGN
 	mov [flag], edx
 
 	jmp .parse_flags
@@ -133,18 +133,20 @@ hw_sprintf:
 	sub al, '0'
 	push ecx
 	push ebx
+	push edx
 
-	xor ebx, ebx
-	add ebx, 10
+	mov dword ebx, 10
+	xor edx, edx
 	xor ecx, ecx
 	mov cl, al
 	mov eax, [width]
 
 	mul ebx
-	add eax, eax
+	add eax, ecx
 	mov [width], eax
-	mov al, cl
+	mov eax, ecx
 
+	pop edx
 	pop ebx
 	pop ecx
 	
@@ -214,24 +216,20 @@ hw_sprintf:
 	cmp ecx, 0
 	je .parse_num
 
-
 	cmp eax, 0
 	jnl .parse_num
 	neg eax
 
 	mov ecx, [flag]
 	or ecx, IS_NEGATIVE
-	mov [flag], ecx
-
-	mov ecx, [flag]
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
 
 	jmp .parse_num
 .take_from_stack_long:
-	mov edx, [ebx]
-	add ebx, 4
 	mov eax, [ebx]
+	add ebx, 4
+	mov edx, [ebx]
 	add ebx, 4
 
 	mov ecx, [flag]
@@ -248,9 +246,6 @@ hw_sprintf:
 	
 	mov ecx, [flag]
 	or ecx, IS_NEGATIVE
-	mov [flag], ecx
-
-	mov ecx, [flag]
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
 
@@ -275,9 +270,7 @@ hw_sprintf:
 
 .process_lo_part:
 	mov esi, eax
-	
 	mov eax, ebx
-
 	push ecx
 	mov dword ecx, 10
 	div ecx
@@ -295,21 +288,118 @@ hw_sprintf:
 	cmp ebx, 0
 	jne .process_hi_part
 
+	mov eax, [flag]
+	and eax, WIDTH_SET
+	cmp eax, 0
+	je .put_sign
+
+	mov ebx, [width]
+	
+	mov eax, SHOW_SIGN
+	or eax, SPACE_BEFORE
+	and eax, [flag]
+	cmp eax, 0
+
+	je .set_align
+	dec ebx
+
+.set_align:
+	cmp ecx, ebx
+	jge .put_sign
+
+	sub ebx, ecx
+	mov [width], ebx
+
+	mov eax, [flag]
+	and eax, LEFT_ALIGN
+	cmp eax, 0
+
+	jne .put_sign
+
+	mov eax, [flag]
+	and eax, ZERO_SYMB_COMPL
+	cmp eax, 0
+	jne .put_zero
+	mov dl, ' '
+	jmp .put_compl
+.put_zero:
+	mov dl, '0'
+.put_compl:
+	cmp ebx, 0
+	jle .put_sign
+	mov [edi], dl
+	inc edi
+	dec ebx
+	jmp .put_compl
+
+.save_width:
+	mov dword [width], 0
+.put_sign:
+	mov eax, [flag]
+	and eax, SHOW_SIGN
+	cmp eax, 0
+	je .put_space
+	
+	mov eax, [flag]
+	and eax, IS_NEGATIVE
+	cmp eax, 0
+	
+	jne .put_minus
+	mov al, '+'
+	mov [edi], al
+	inc edi
+	jmp .put_out_num
+
+.put_space:
+	mov eax, [flag]
+	and eax, SPACE_BEFORE
+	cmp eax, 0
+	je .put_out_num
+	mov al, ' '
+	mov [edi], al
+	inc edi
+	jmp .put_out_num
+
+.put_minus:
+	mov al, '-'
+	mov [edi], al
+	inc edi
+
 .put_out_num:
 	cmp ecx, 0
-	je .exit_putting_out
+	je .put_left_align
 	pop edx
 	mov [edi], dl
 	inc edi
 	dec ecx
 	jmp .put_out_num
 
+.put_left_align:
+	mov eax, [flag]
+	and eax, WIDTH_SET
+	cmp eax, 0
+	
+	mov eax, [flag]
+	and eax, LEFT_ALIGN
+	cmp eax, 0
+	je .exit_putting_out
+
+	mov ebx, [width]
+	mov dl, ' '
+.put_left_compl:
+	cmp ebx, 0
+	jle .exit_putting_out
+	mov [edi], dl
+	inc edi
+	dec ebx
+	jmp .put_left_compl
+
 .exit_putting_out:
 	pop ebp
 	pop ebx
 	pop esi
-	jmp .parse_comm_seq
-
+	jmp .parse_format_char
+	
 .incorrect_comm_seq:
 	mov al, [esi]
 	inc esi
