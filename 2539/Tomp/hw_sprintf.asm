@@ -93,9 +93,9 @@ ullformat:
 .size:
         cmp al, 'l'
         jne .type
-        ; lodsb
-        ; cmp al, 'l'
-        ; if invalid, the whole thing is
+        lodsb
+        cmp al, 'l'
+        jne .invalidSequence
         or bl, LONG_LONG
         inc esi
         lodsb
@@ -103,6 +103,7 @@ ullformat:
         cmp al, '%'
         jne ..@aNumber
         stosb
+        mov byte [edi], 0
         jmp .exit
 ..@aNumber
         mov cl, al
@@ -120,8 +121,8 @@ ullformat:
         je .printSigned
         cmp cl, 'd'
         je .printSigned
-        ; cmp al, 'u'
-        ; if invalid, the whole thing is
+        cmp cl, 'u'
+        jne .invalidSequence
 .printUll:
         test bl, PLUS
         jz ..@spaceSignUll
@@ -185,6 +186,7 @@ ullformat:
         mov edi, esi
         mov cl, bh
         cld
+        ; xor al, al
         repnz scasb
         mov esi, edi
         add edi, ecx
@@ -204,6 +206,13 @@ ullformat:
         mov al, ' '
 ..@doClean:
         rep stosb
+        jmp .exit
+.invalidSequence:
+        mov esi, [esp + 8]
+        mov edi, [esp + 4]
+        mov byte [edi], '%'
+        mov byte [edi + 1], 0
+        inc edi
 .exit:
         mov cl, bl
         pop ebx
@@ -238,7 +247,9 @@ hw_sprintf:
         call ullformat
         mov cl, 127
         cld
+        xor al, al
         repnz scasb
+        dec edi
         jmp .loop
 ..@justPrint:
         stosb
