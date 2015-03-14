@@ -1,3 +1,5 @@
 cpp/
 *.o
-test
+*.a
+hw1.h
+main
