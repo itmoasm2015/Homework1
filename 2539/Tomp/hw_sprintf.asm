@@ -54,6 +54,7 @@ ullformat:
         push esi
         push edi
         push ebx
+        xor eax, eax
         xor ebx, ebx
         xor ecx, ecx
 .flags:
@@ -83,11 +84,11 @@ ullformat:
         cmp al, '0'
         jl .size
         sub al, '0'
-        shl bh, 1
-        mov cl, bh
-        shl cl, 2
-        add bh, cl
-        add bh, al
+        shl ecx, 1
+        mov edx, ecx
+        shl edx, 2
+        add ecx, edx
+        add ecx, eax
         lodsb
         jmp .width
 .size:
@@ -105,7 +106,7 @@ ullformat:
         mov byte [edi], 0
         jmp .exit
 ..@aNumber
-        mov cl, al
+        mov bh, al
         mov eax, [esp]
         lea edx, [eax + 4]
         mov eax, [eax]
@@ -116,11 +117,11 @@ ullformat:
 ..@notLong:
         xor edx, edx
 ..@checkSigned:
-        cmp cl, 'i'
+        cmp bh, 'i'
         je .printSigned
-        cmp cl, 'd'
+        cmp bh, 'd'
         je .printSigned
-        cmp cl, 'u'
+        cmp bh, 'u'
         jne .invalidSequence
 .printUll:
         test bl, PLUS
@@ -153,26 +154,27 @@ ullformat:
         mov byte [edi], '+'
         inc edi
 .align:
+        push ecx
         push edi
         push edx
         push eax
         call ulltoa
         add esp, 12
+        pop ecx
         or bl, PROCEED
         test bl, ALIGN_LEFT
         jz ..@alignRight
-        mov cl, bh
         mov edi, [esp + 4]
         cld
         repnz scasb
         mov al, ' '
         dec edi
-        inc cl
+        inc ecx
         rep stosb
         mov byte [edi], 0
         jmp .exit
 ..@alignRight:
-        inc bh
+        inc ecx
         mov edx, esi
         mov esi, [esp + 4]
         test bl, ZERO_ALIGN
@@ -180,18 +182,19 @@ ullformat:
         test bl, ALWAYS_SIGN
         jz ..@doTheJob
         inc esi
-        dec bh
+        dec ecx
 ..@doTheJob:
         mov edi, esi
-        mov cl, bh
+        push ecx
         cld
         ; xor al, al
         repnz scasb
         mov esi, edi
         add edi, ecx
-        sub bh, cl
-        mov cl, bh
-        inc cl
+        neg ecx
+        add ecx, [esp]
+        add esp, 4
+        inc ecx
         std
         rep movsb
         mov ecx, edi
@@ -244,7 +247,7 @@ hw_sprintf:
         cmp al, '%'
         jne ..@justPrint
         call ullformat
-        mov cl, 127
+        mov ecx, 0x7fffffff
         cld
         xor al, al
         repnz scasb

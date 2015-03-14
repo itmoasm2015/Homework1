@@ -3,7 +3,7 @@
 #include "string.h"
 #include "../../include/hw1.h"
 
-char buf[30];
+char buf[2000000];
 
 #define test(...) hw_sprintf(buf, __VA_ARGS__); printf("%s|\n", buf)
 
@@ -12,5 +12,6 @@ int main() {
     test("%ll %d", 123);
     test("%-%%d", 123);
     test("% l%d", 123);
+    test("%+0200u", 123);
     return 0;
 }
