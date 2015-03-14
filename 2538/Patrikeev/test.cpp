@@ -7,10 +7,12 @@ int main() {
 
     char out[256];
  //   hw_sprintf(out, "Hello, I am a cool string!!!!!!!!!");
+    memset(out, 0, sizeof(out));
     hw_sprintf(out, "% 10d");
 
+
     for (int i = 0; i < 50; i++) {
-        printf("%c ", out[i]);
+        printf("%d ", out[i]);
     }
 
     return 0;

@@ -1,21 +1,23 @@
 global hw_sprintf
 
-%define set_flag(x)  or ebx, x
-%define test_flag(x) test ebx, x
-%assign plus_flag    1 << 1
-%assign minus_flag   1 << 2
-%assign zero_flag    1 << 3
-%assign space_flag   1 << 4
-%assign long_flag    1 << 5
-%assign unsign_flag  1 << 6
-
 extern printf
 
-section .data
-FORMAT_STRING:      db      '%08x', 10, 0
+%define set_flag(x)  or ebx, x
+%define test_flag(x) test ebx, x
+%assign plus_flag    1 << 1 ;; '+' specified
+%assign minus_flag   1 << 2 ;; '-' specified
+%assign zero_flag    1 << 3 ;; '0' specified
+%assign space_flag   1 << 4 ;; ' ' specified
+%assign long_flag    1 << 5 ;; 'll' specified
+%assign unsign_flag  1 << 6 ;; 'u' specified
+%assign neg_flag     1 << 7 ;; current printing number is negative 
+
+section .bss
+next_ptr:   resq     1      ;;next_ptr is a pointer to next number to be printed
 
 section .text
 
+;;the main function of the party
 ;;void hw_sprintf(char *out, char const *format, ...);
 hw_sprintf:
     push    ebp         ;;save caller's stack frame
@@ -25,15 +27,15 @@ hw_sprintf:
     push    edi
     push    esi
     
-    mov     edi, [ebp + 8]  ;;1-st param (*out)
-    mov     esi, [ebp + 12] ;;2-d parameter (*format)
+    mov     edi, [ebp + 8]       ;;1-st param (*out)
+    mov     esi, [ebp + 12]      ;;2-d parameter (*format)
+    lea     next_ptr, [ebp + 16] ;;point to 1-st number
 
 ;;allocate new "variable" that points to next number to be printed   
 ;;so [ebp-.ptr] contains address of next argument (int or long long whatever)
-    .ptr    equ 4       ;;for easy way to get variable
-    sub     esp, 4      ;;get room for ptr
-    mov     eax, [ebp + 16]         
-    mov     [ebp-.ptr], eax ;;load address of the first number (3-d parameter of hw_sprintf)
+;;    sub     esp, 4      ;;get room for ptr
+;;    mov     eax, [ebp + 16]         
+;;    mov     [ebp-next_], eax ;;load address of the first number (3-d parameter of hw_sprintf)
         
     xor     eax, eax        ;;clear room for chars
 .read_until_eol:
@@ -143,9 +145,8 @@ hw_sprintf:
 
 .type_checked:
 .unsigned_flag_checked:
-
-;;all specifiers are OK, do the main work:
-
+;;all specifiers are OK, flags and "width" are set => print next number
+    jmp     print_next_number
      
 ;;this label pops chars from the stack(in reverse order)
 ;;and writes them to room, starting at [edi] (in forward order)
@@ -222,20 +223,27 @@ set_long_flag:
     set_flag(long_flag)
     jmp hw_sprintf.long_flag_checked
 
+;;this label determines a kind of number, converts int -> int64
+;;prints number, moves (*out) pointer properly and goes to a next char
+;;it doesn't require any parameters, as far as they all are in appropriate places
+;;-------------------------------------------------------------------------------
+;;ebx - holds flags
+;;edx - holds minimal "width"
+;;next_ptr - address of next value 
+print_next_number:
+    ;;here it is all the work
+    jmp read_until_eol
 
-;; print_unsigned_long: push    ebp
-print_unsigned_long:
-    push    ebp
-    mov     ebp, esp
 
-    push    ebx
-    push    edi
-    push    esi
-
-    mov     eax, [ebp + 8]  ;;less-significant bits: let it name A
-    mov     edx, [ebp + 12] ;;most-significant bits: let it name B
-    xor     ecx, ecx        ;;length of number
-    mov     ebx, 10         ;;divisor
+print_unsigned_long:             
+    push    esi         ;;save ESI (*format) to make it usable
+    push    ebx         ;;save EBX (flags) to make it usable
+    
+    mov     edx, [next_ptr + 12] ;;most-significant bits: let it name A
+    mov     eax, [next_ptr + 8]  ;;less-significant bits: let it name B
+                                 ;;so EDX:EAX == A:B
+    xor     ecx, ecx             ;;ECX is length of number in digits
+    mov     ebx, 10              ;;divisor
 .divide_until_zero:
     mov     esi, eax  ;; save value of EAX==B in ESI
                       ;; EDX:EAX == A:B
@@ -244,37 +252,33 @@ print_unsigned_long:
     div     ebx       ;; EDX:EAX == A % 10 : A / 10
     xchg    esi, eax  ;; EDX:EAX == A % 10 : B  and ESI == A / 10
     div     ebx       ;; EDX:EAX == (((A % 10) << 32) + B) % 10 : (((A % 10) << 32) + B) / 10
-                      ;;         == (....it's a new digit.....) : (..........remainder......)
-                      ;; EDX holds new digit
-
-    push    edx
+                      ;; EDX:EAX == (....it's a new digit.....) : (..........remainder......)
+    
+    ;; EDX holds new digit
+    mov     byte [edi], dl
+    inc     edi
     inc     ecx
+
+    ;push    edx       ;;push current digit on stack(in future we will get forward representation)
+    ;inc     ecx       ;;increment number's length
 
     mov     edx, esi  ;; EDX:EAX == A / 10 : (((A % 10) << 32) + B) / 10
                       ;; for now (EDX * 2^32 + EAX) is exactly ((A * 2^32 + B) / 10)
-                      ;; that is (new_A : new_B)
+                      ;; that is EDX:EAX == new_A:new_B == newEDX:newEAX
 
-    or      esi, eax
+    or      esi, eax           ;;check if (EDX:EAX) == 0
     cmp     esi, 0
-    jnz     .divide_until_zero  
+    jnz     .divide_until_zero ;;if yes, then stop division 
 
 .after_division:
-    pop     edx
-    push    eax
-    push    ecx
-    push    edx
+    pop     ebx         ;;restore flags
+    test_flag(plus_flag)
+    jz      .plus_flag_proceed  ;;jump if plus flag is not set 
+    mov     byte [edi], '+'
+    
+.plus_flag_proceed:
 
 
-    pop     edx
-    pop     ecx
-    pop     eax
+    pop     esi     ;;restore ESI
 
-    loop    .after_division
-
-    pop     esi
-    pop     edi
-    pop     ebx
-
-    mov     esp, ebp
-    pop     ebp
     ret
