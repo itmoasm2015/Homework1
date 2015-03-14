@@ -4,31 +4,52 @@ section .text
 
 ; void hw_swprintf(char* out, char const* format, ...)
 hw_sprintf:
-    
     push ebx
     push ebp
     push esi
     push edi
 
-    mov edi, [esp + 20] ; out
-    mov esi, [esp + 24] ; format
-    mov ebp, [esp + 28] ; flags
-
-    jmp .process
+    mov edi, [esp + 32 - 12] ; out
+    mov esi, [esp + 32 - 8] ; format
+    lea ebp, [esp + 32 - 4] ; arguments
 
 .process:
-    
     mov al, byte [esi]
-    xor ah, ah
+    cmp al, '%'
+    je .format
     mov [edi], al
     inc edi
+
+.zaloop:
     test al, al
     je .return
     inc esi
     jmp .process
 
+.format:
+    mov eax, [ebp]
+    xor ecx, ecx
+
+.parse_number:
+    xor edx, edx
+    mov ebx, 10
+    div ebx
+    add edx, 48
+    push edx
+    inc ecx
+    test eax, eax
+    jnz .parse_number
+
+.reverse_get:
+    pop eax
+    mov [edi], eax
+    inc edi
+    dec ecx
+    test ecx, ecx
+    jnz .reverse_get
+    jmp .zaloop
+
 .return:
-    
     pop edi
     pop esi
     pop ebp
