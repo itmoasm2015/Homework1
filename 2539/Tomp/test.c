@@ -13,5 +13,11 @@ int main() {
     test("%-%%d", 123);
     test("% l%d", 123);
     test("%+0200u", 123);
+    test("Hello world %d", 239);
+    test("%+5u", 51);
+    test("%8u=%-8u", 1234, 1234);
+    test("%wtf", 1, 2, 3, 4);
+    test("50%%");
+    test("%llu", (long long)-1);
     return 0;
 }

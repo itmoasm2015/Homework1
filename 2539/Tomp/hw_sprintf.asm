@@ -232,6 +232,7 @@ ullformat:
         mov al, ' '
 ..@doClean:
         rep stosb
+        mov edi, [esp + 4]
         jmp .exit
 .invalidSequence:
         ; print '%' as if it was not a special case;
@@ -281,7 +282,7 @@ hw_sprintf:
         mov ecx, 0x7fffffff
         cld
         xor al, al
-        repnz scasb
+        repne scasb
         dec edi
         jmp .loop
 ..@justPrint:
