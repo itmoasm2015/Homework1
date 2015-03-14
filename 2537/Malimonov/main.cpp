@@ -7,7 +7,7 @@ using namespace std;
 
 int main() {
     char out[100];
-    hw_sprintf(out, "x = %d!\n", 95);
+    hw_sprintf(out, "x = %d!\n", -95);
     printf("%s", out);
     return 0;
 }

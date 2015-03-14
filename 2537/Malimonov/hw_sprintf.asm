@@ -1,5 +1,8 @@
 global hw_sprintf
 
+MINUS       equ '-'
+ASCII_CONST equ 48
+
 section .text
 
 ; void hw_swprintf(char* out, char const* format, ...)
@@ -30,15 +33,19 @@ hw_sprintf:
     mov eax, [ebp]
     xor ecx, ecx
 
+    cmp eax, 0
+    jl .print_minus
+
 .parse_number:
     xor edx, edx
     mov ebx, 10
     div ebx
-    add edx, 48
+    add edx, ASCII_CONST
     push edx
     inc ecx
     test eax, eax
     jnz .parse_number
+
 
 .reverse_get:
     pop eax
@@ -48,6 +55,14 @@ hw_sprintf:
     test ecx, ecx
     jnz .reverse_get
     jmp .check_null
+
+
+.print_minus:
+    mov edx, MINUS
+    mov [edi], edx
+    inc edi
+    neg eax
+    jmp .parse_number
 
 .return:
     pop edi
