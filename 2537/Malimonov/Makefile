@@ -1,7 +1,7 @@
 ASM = yasm
 ASFLAGS = -f elf32
 
-CFLAGS = -Wall -m32
+CFLAGS = -g -Wall -m32
 CC = gcc
 
 EXECUTABLE = main
