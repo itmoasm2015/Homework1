@@ -34,7 +34,7 @@ write_unsigned:
 	add esi, 4
 
 .loop				;делим на 10, остаток в виде символа 	
-	mov edx, 0		;	записываем на стек, двинаем указатель на конец - edi 
+	mov edx, 0		;	записываем на стек, двигаем указатель на конец - edi 
 	div ecx			
 	add edx, '0'
 	dec edi
@@ -142,13 +142,14 @@ write_unsigned:
 	jz .write_loop
 
 .prev_loop_zero
+	cmp ecx, 0
+	jle .write_loop
+	
 	mov dl, '0'
 	mov byte[edi], dl
 	inc edi
 	dec ecx
-	cmp ecx, 0
-	jg .prev_loop_zero
-	jmp .write_loop
+	jmp .prev_loop_zero
 	
 .write_loop			;теперь, наконец-то, запишем в out наше число!
 	mov dl, byte[eax]
@@ -160,14 +161,18 @@ write_unsigned:
 
 	test ebx, FLAG_MINUS	;если был флаг "-", то нужно дополнить его до ширины пробелами(minus_loop) 
 	jz .ret
+
 .minus_loop
+	cmp ecx, 0
+	jle .ret
+
+
 	mov dl, ' '
 	mov byte[edi], dl
 	inc edi
 	dec ecx
-	cmp ecx, 0
-	jg .minus_loop
-
+	jmp .minus_loop
+	
 .ret
 	mov eax, esi		;возвращаемое значение сохраняется в eax 
 	pop esi 
@@ -268,14 +273,16 @@ write_to_out:
 	push ebp
 	mov ebp, esp
 .loop
+	cmp eax, esi		;если еще дошли до конца - вернемся
+	je .ret
+
+
 	mov cl, byte[eax]
 	mov byte[edi], cl
 	inc eax
 	inc edi
-
-	cmp eax, esi		;если еще не дошли до конца - продолжим
-	jne .loop
-
+	jmp .loop
+.ret
 	pop ebp
 	ret
 
@@ -355,8 +362,11 @@ hw_sprintf:
 	mov cl, byte[esi]
 	inc esi
 	cmp cl, 'l'
-	jne .no_format
+	je .long_long		;если текущий символ не второе l, нужно откатиться на символ назад.
+	dec esi
+	jmp .no_format
 
+.long_long
 	or ebx, FLAG_LONG_LONG
 	mov cl, byte[esi]
 	inc esi
