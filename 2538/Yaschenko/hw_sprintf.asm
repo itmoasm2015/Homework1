@@ -157,7 +157,7 @@ hw_sprintf:
 	add eax, 1		; add 1 
 	adc edx, 0		; and add CF is eax was 0xFFFFFFFF
 
-.prepate_output_done:
+.prepare_output_done:
 	test ebx, FLAG_ZERO	; if has zero pad
 	jz .calc_padding
 	call output_first_char
@@ -273,15 +273,15 @@ output_first_char:
 .put_minus:
 	mov byte [edi], '-'
 	inc edi
-	jmp .ret
+	jmp .return
 .put_plus:
 	mov byte [edi], '+'
 	inc edi
-	jmp .ret
+	jmp .return
 .put_space:
 	move byte [edi], ' '
 	inc edi
-.ret:
+.return:
 	ret
 	
 	
