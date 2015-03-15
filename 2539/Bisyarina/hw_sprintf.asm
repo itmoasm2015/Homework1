@@ -200,7 +200,7 @@ hw_sprintf:
 	mov ecx, [flag]
 	and ecx, IS_SIGNED		; check if value is singed or not
 	cmp ecx, 0
-	je .ensure_no_sign_unsigned
+	je .parse_num
 	cmp eax, 0
 	jnl .parse_num
 	
@@ -220,7 +220,7 @@ hw_sprintf:
 	mov ecx, [flag]
 	and ecx, IS_SIGNED		; check if value is singed or not
 	cmp ecx, 0
-	je .ensure_no_sign_unsigned
+	je .parse_num
 	cmp edx, 0
 	jnl .parse_num
 
@@ -232,15 +232,6 @@ hw_sprintf:
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
 	jmp .parse_num
-
-.ensure_no_sign_unsigned:		; check that SHOW_SIGN not set for unsigned
-	mov ecx, [flag]		; fix if set
-	and ecx, SHOW_SIGN
-	cmp ecx, 0
-	je .parse_num
-	mov ecx, [flag]
-	xor ecx, SHOW_SIGN
-	mov [flag], ecx
 
 ;;; Takes value edx:eax and puts it's chars using FLAG to EDI
 .parse_num:

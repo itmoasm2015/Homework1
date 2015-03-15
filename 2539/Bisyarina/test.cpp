@@ -18,7 +18,7 @@ char act[1000001];
 int main() {
 	
 	test("%d", 5);
-	test("%+u", 239);
+	disable_test("%+5u", 239);
 	test("%+-010d=\n", 123);
 	test("%ll%d\n", (long long) 123);
 	disable_test("%ll10d\n", (long long) 123);
