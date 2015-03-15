@@ -220,7 +220,7 @@ __parse_sequence:
 ;; int minlength -- minimum length of output. Contents should be padded to minlength with spaces or zeroes, depending on flags
 ;;
 ;; Returns:
-;; Address of byte right after printed string
+;; Address of byte right after printed string (on the null-termitanor)
 hw_ntoa:
               CDECL_ENTER 0, 0
               mov   edx, [ebp+20]   ; number pointer
@@ -268,11 +268,10 @@ hw_ntoa:
               mov   edx, [ebp+32]   ; minlength
               sub   edx, ecx        ; What we really need is the difference between real length and minlength
 
-              ;; If any of these flags are set, real length of string would be greater by 1
-              ;; However, resulting string contains null-terminator, which we should omit,
-              ;; so we increment the difference by 1 otherwise.
-              JFLAG (FLAG_NEGATIVE | FLAG_SIGN_ANYWAY | FLAG_PUT_WHITESPACE), .nondec
-              inc   edx
+              ;; If any of these flags are set, real length of string would be greater by 1,
+              ;; so we decrement the difference by 1.
+              JNFLAG (FLAG_NEGATIVE | FLAG_SIGN_ANYWAY | FLAG_PUT_WHITESPACE), .nondec 
+              dec   edx
 .nondec:
               xchg  ecx, edx        ; Save real number length
 
@@ -304,21 +303,20 @@ hw_ntoa:
 
               mov   eax, '0'
               rep   stosb
-.copy:
-              xchg  ecx, edx
-              rep   movsb           ; Copy esi to edi
-
+.copy:        
+              xchg  ecx, edx        
+              rep   movsb           ; Copy esi to edi 
+                                    
               JNFLAG FLAG_LEFT_ALIGN, .return ; Append with spaces if '-' flag is set
-              JCOND le, edx, 0, .return       ; and minlength > real length
-
-              dec   edi             ; Rewrite previously written null-terminator
-              xchg  ecx, edx
-              mov   eax, ' '
-              rep   stosb
-              mov   [edi], byte 0
-.return:
-              lea   eax, [edi-1]    ; Return current EDI
-              CDECL_RET
+              JCOND le, edx, 0, .return ; and minlength > real length
+                                    
+              xchg  ecx, edx        
+              mov   eax, ' '        
+              rep   stosb           
+.return:                            
+              mov   [edi], byte 0   ; Write null-terminator
+              mov   eax, edi        ; Return current EDI
+              CDECL_RET 
 
 
 ;; __hw_ultoa -- inner non-cdecl function
@@ -333,8 +331,7 @@ hw_ntoa:
 ;; ecx -- output string length
 __hw_ultoa:
               lea   esi, [BYTE_STACK+1023]
-              mov   ecx, 1          ; Initial string length
-              mov   [esi], byte 0   ; This is gonna be the null-terminator
+              xor   ecx, ecx        ; Initial string length
 
               call  .recur          ; Recursive sub-function puts chars on stack
               ret
