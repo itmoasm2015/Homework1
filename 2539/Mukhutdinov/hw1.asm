@@ -17,11 +17,11 @@
 	      cmp   %2, %3
 	      j%1   %4
 %endmacro
-	      
+
 %macro JIFE 3
 	      JCOND e, %1, %2, %3
 %endmacro
-	      
+
 ;; Definitions of control sequence parser flags
 ;;
 ;; Flags are stored in EBX register after parsing control sequence
@@ -32,17 +32,27 @@
 %define FLAG_PAD_WITH_ZEROES    8   ; '0'
 %define FLAG_LONG_LONG          16  ; 'll'
 %define FLAG_UNSIGNED           32  ; 1 if 'u', 0 otherwise
+%define FLAG_NEGATIVE           64  ; Helper flag: 1 if number being processed is negative, 0 otherwise
 
 ;; Convenience macros
-%define	TEST_FLAG(fl) test bl, fl
-%define SET_FLAG(fl)  or   bl, fl
+%define	TEST_FLAG(fl)  test bl, fl
+%define SET_FLAG(fl)   or   bl, fl
+%define UNSET_FLAG(fl) and  bl, ~fl
+
+%macro JCFLAG 3                     ; Conditional jump checking flag
+              TEST_FLAG(%2)
+              j%+1  %3
+%endmacro
 
 %macro JFLAG 2
-	      TEST_FLAG(%0)
-	      jnz   %1
+              JCFLAG nz, %1, %2
 %endmacro
-	      
-global hw_sprintf, hw_uitoa, hw_itoa
+
+%macro JNFLAG 2
+              JCFLAG z, %1, %2
+%endmacro
+
+global hw_sprintf, hw_ntoa
 
 section .bss
 BYTE_STACK:   resb  1024
@@ -78,7 +88,7 @@ hw_sprintf:
               inc   esi
               inc   edi
               jmp   .main_loop
-              
+
 .start_parsing:
 	      ;; Start control sequence parsing
               call  __parse_sequence
@@ -91,7 +101,7 @@ hw_sprintf:
 
 ;; __parse_sequence -- inner non-cdecl function
 ;;
-;; Parses the control sequence and prints the output to edi 
+;; Parses the control sequence and prints the output to edi
 ;;
 ;; Takes:
 ;; esi -- address of beginning of the control sequence
@@ -128,11 +138,11 @@ __parse_sequence:
 	      inc   esi
 	      mov   al, [esi]
 	      jmp   .width_loop
-	      
-.width_loop_finish:	      
+
+.width_loop_finish:
 	      ;; Try to set 'll' flag
 	      JIFE  al, 'l', .check_ll
-.check_type:  
+.check_type:
 	      ;; Check type
 	      JIFE  al, 'u', .set_unsigned
 	      JIFE  al, 'i', .write_number
@@ -142,7 +152,7 @@ __parse_sequence:
 .failed:
 	      ;; If we didn't jumped out of there, this means that control sequence is invalid
 	      pop   esi             ; Restore beginning of control seq
-	      jmp   .write_percent  ; Write initial '%' to output and skip it
+	      jmp   .write_percent_fail ; Write initial '%' to output and skip it
 .set_p:
 	      SET_FLAG(FLAG_SIGN_ANYWAY)
 	      jmp   .flags_loop
@@ -159,71 +169,158 @@ __parse_sequence:
 	      inc   esi
 	      mov   al, [esi]
 	      JCOND ne, al, 'l', .failed ; If we have something except 'l' after 'l', then control sequence is invalid
-	      
+
 	      SET_FLAG(FLAG_LONG_LONG)
+              inc   esi
+	      mov   al, [esi]
 	      jmp   .check_type
 .set_unsigned:
 	      SET_FLAG(FLAG_UNSIGNED)
+
 .write_number:
-	      
+              ;; Print the number itself using hw_ntoa
+              push  eax             ; Save EAX
+
+              push  ecx             ; int minlength
+              push  ebx             ; int flags
+              push  edi             ; char* out
+              push  edx             ; void* np (and also we'll restore EDX from there)
+
+              call  hw_ntoa
+
+              pop   edx             ; Restore EDX and shift it properly depending on argument type
+              JNFLAG FLAG_LONG_LONG, .int
+              add   edx, 4          ; Shift 4 bytes further if argument is long long
+.int:
+              add   edx, 4
+              add   esp, 12
+
+              mov   edi, eax        ; Shift EDI forward to the end of written string (excluding the null-terminator)
+              pop   eax             ; Restore EAX
+              add   esp, 4          ; Erase previous ESI record on stack
+              jmp   .finish
+
 .write_percent:
-	      mov   [edi], byte '%' ; Write '%' to output
-	      inc   esi             ; Move ESI to skip '%' on next main loop iteration
+              add   esp, 4
+.write_percent_fail:
+	      mov   [edi], byte '%'
 	      inc   edi
+.finish:
+	      inc   esi             ; Move ESI to the first symbol after control sequence
 	      ret
-	      
-;; void hw_uitoa(int a, char* out);
+
+;; char* hw_ntoa(void* np, char* out, int flags, int minlength);
 ;;
-;; Makes string representation of an 32-bit unsigned integer
+;; Makes string representation of a number, stored by address np.
 ;;
 ;; Parameters:
-;; int a -- input number
+;; void* np -- input number address (treated as int or long depending on FLAG_LONG_LONG value in flags)
 ;; char* out -- where result is stored
-hw_uitoa:
-              CDECL_ENTER 0, 0
-              mov   eax, [ebp+20]   ; input number
-              mov   edi, [ebp+24]   ; string address
-
-              xor   edx, edx
-              call  __hw_ultoa
-              rep   movsb           ; Copy data from esi to edi
-
-              CDECL_RET
-
-;; void hw_itoa(int a, char* out);
+;; int flags -- output flags. The same as contents of EBX filled by __parse_sequence.
+;; int minlength -- minimum length of output. Contents should be padded to minlength with spaces or zeroes, depending on flags
 ;;
-;; Makes string representation of an 32-bit signed integer
-;;
-;; Parameters:
-;; int a -- input number
-;; char* out -- where result is qstored
-hw_itoa:
+;; Returns:
+;; Address of byte right after printed string
+hw_ntoa:
               CDECL_ENTER 0, 0
-              mov   eax, [ebp+20]   ; input number
-              mov   edi, [ebp+24]   ; string address
+              mov   edx, [ebp+20]   ; number pointer
+              mov   edi, [ebp+24]   ; output address
+              mov   ebx, [ebp+28]   ; flags
+                                    ; We will fetch minlength later
 
+              mov   eax, [edx]      ; Get low half of number
+
+              ;; Here code is branching to int preprocessing
+              ;; and long long preprocessing
+              JFLAG FLAG_LONG_LONG, .longlong
+
+.int:
               xor   edx, edx
 
-              cmp   eax, 0          ; Check if int is negative
-              jge   .positive       ; and invert it if it is
+              ;; Skip all sign-related processing in case uf 'u'-flag
+              JFLAG FLAG_UNSIGNED, .unsigned
 
-              pushf                 ; Save current FLAGS to check if int is negative again later
+              ;; Check if int is negative and invert it if it is
+              bt    eax, 31         ; check the elder bit
+              jnc   .unsigned
+
+              SET_FLAG(FLAG_NEGATIVE)
               not   eax
               inc   eax
-.positive:
-              call  __hw_ultoa
-              
-              popf                  ; Restore FLAGS
-              jge   .copy           ; Write '-' in front if number was negative
-              dec   esi
-              mov   [esi], byte '-'
-              inc   ecx
-.copy:
-              rep movsb             ; Copy esi to edi
+              jmp   .unsigned
+.longlong:
+              mov   edx, [edx+4]    ; Fetch high half
 
+              JFLAG FLAG_UNSIGNED, .unsigned
+
+              ;; Invert long long if it is negative
+              bt    edx, 31
+              jnc   .unsigned
+
+              SET_FLAG(FLAG_NEGATIVE)
+              not   eax
+              not   edx
+              add   eax, 1          ; it's a pity that INC doesn't set CF
+              adc   edx, 0
+.unsigned:
+              call  __hw_ultoa
+
+              mov   edx, [ebp+32]   ; minlength
+              sub   edx, ecx        ; What we really need is the difference between real length and minlength
+
+              ;; If any of these flags are set, real length of string would be greater by 1
+              ;; However, resulting string contains null-terminator, which we should omit,
+              ;; so we increment the difference by 1 otherwise.
+              JFLAG (FLAG_NEGATIVE | FLAG_SIGN_ANYWAY | FLAG_PUT_WHITESPACE), .nondec
+              inc   edx
+.nondec:
+              xchg  ecx, edx        ; Save real number length
+
+              ;; Prepend with spaces if real length < minlength and no contradictory flags are set
+              JFLAG (FLAG_LEFT_ALIGN | FLAG_PAD_WITH_ZEROES), .write_sign
+              JCOND le, ecx, 0, .write_sign
+
+              mov   eax, ' '
+              rep   stosb
+.write_sign:
+              JNFLAG FLAG_NEGATIVE, .write_plus ; Write '-' in front if number was negative
+              mov   [edi], byte '-'
+              inc   edi
+              jmp   .zeroes_in_front
+.write_plus:
+              JNFLAG FLAG_SIGN_ANYWAY, .write_ws ; Write '+' in front if according flag is set
+              mov   [edi], byte '+'
+              inc   edi
+              jmp   .zeroes_in_front
+.write_ws:
+              JNFLAG FLAG_PUT_WHITESPACE, .zeroes_in_front ; Write ' ' in front if according flag is set
+              mov   [edi], byte ' '
+              inc   edi
+
+.zeroes_in_front:
+              JNFLAG FLAG_PAD_WITH_ZEROES, .copy ; Prepend with zeroes if '0' is set,
+              JFLAG FLAG_LEFT_ALIGN, .copy       ; '-' flag is not set
+              JCOND le, ecx, 0, .copy            ; and minlength > real length
+
+              mov   eax, '0'
+              rep   stosb
+.copy:
+              xchg  ecx, edx
+              rep   movsb           ; Copy esi to edi
+
+              JNFLAG FLAG_LEFT_ALIGN, .return ; Append with spaces if '-' flag is set
+              JCOND le, edx, 0, .return       ; and minlength > real length
+
+              dec   edi             ; Rewrite previously written null-terminator
+              xchg  ecx, edx
+              mov   eax, ' '
+              rep   stosb
+              mov   [edi], byte 0
+.return:
+              lea   eax, [edi-1]    ; Return current EDI
               CDECL_RET
 
-	      
+
 ;; __hw_ultoa -- inner non-cdecl function
 ;;
 ;; Produces a string out of unsigned long long
@@ -259,7 +356,7 @@ __hw_ultoa:
               pop   edx             ; Restore the whole 64-bit quotient
 
               test  edx, edx        ; Test if both
-              jne   .rec            ; halves of quotient are             
+              jne   .rec            ; halves of quotient are
 .t2:                                ; zeroes, and
               test  eax, eax        ; stop recursion,
               je    .return         ; if so
