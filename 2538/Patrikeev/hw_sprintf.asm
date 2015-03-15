@@ -105,13 +105,19 @@ hw_sprintf:
     jne     .long_flag_checked  
 
     ;;it may be 'll' specifier, so check if next char is also 'l'
-    mov     byte al, [esi]  ;;load next char
-    inc     esi             ;;move (*format) pointer
-    push    eax             ;;push char to be printed in future
-    inc     ecx             ;;one more char to be printed 
-    cmp     byte al, 'l'    
-    jne     .print_pushed_chars  ;;'lx' -incorrect format sequence => print chars
-    jmp     set_long_flag        ;;'ll' has been encountered
+    mov     byte al, [esi]  ;;peek next char
+    inc     esi             ;;move (*format) pointer to next char
+    push    eax             ;;push char to be printed if error occurs
+    inc     ecx             ;;one more char...
+    cmp     byte al, 'l'    ;;is 'll' encountered?
+    je      set_long_flag   
+
+    ;;unread this symbol and print all the other pushed symbols
+    pop     eax
+    dec     esi
+    dec     ecx
+    jmp     .print_pushed_chars ;;'lx' -incorrect format sequence => print chars
+
 .long_flag_checked:
 
 ;;search for "type" specifier

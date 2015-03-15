@@ -9,7 +9,7 @@ using namespace std;
 int main() {
 
     char out[106];
-    hw_sprintf(out, "%0100d", 99);
+    hw_sprintf(out, "% l%d", 10);
     printf("%s\n", out);
     return 0;
 
