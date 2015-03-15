@@ -10,6 +10,13 @@ int main() {
 
     char out[256];
 
+    hw_sprintf(out, "%d%%%d%u%i%d%lldsdfhj3jk5jk3jk4b1jk34bk1jk13b   \t\n\r34234l2kj3lrkl23", 1, 2, 3, 4, 5, 6, 7, 8, 9, 1);
+    printf("%s\n", out);
+    return 0;
+
+    hw_sprintf(out, "%d%%%d%u%i%d", 1, 2, 3, 4, 5, -1, -2, -3, 1, 2, 3);
+    printf("%s\n", out);
+    return 0;
 
     hw_sprintf(out, "%8u=%-8u", 10, 10);
     printf("%s\n", out);

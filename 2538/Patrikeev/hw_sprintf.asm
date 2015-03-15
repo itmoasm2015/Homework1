@@ -429,18 +429,18 @@ print_unsigned_long:
 
 .loop_reversing:
     ;;do swap via the stack
-    push    edx
+    cmp     eax, 0
+    je      .end_loop_reversing
+    dec     eax
     mov     byte dl, [esi]      ;;save [esi] in stack
     push    edx
     mov     byte dl, [ebx]      ;;move [ebx] to DL
     mov     byte [esi], dl      ;;move DL = [ebx] to [esi]
     pop     edx
     mov     byte [ebx], dl      ;;move DL = [esi] to [edx]
-    pop     edx
     ;;[esi] and [ebx] are swapped
     inc     esi     ;;move ESI forward
     dec     ebx     ;;move EBX back
-    dec     eax     ;;decrement number of iterations
     cmp     eax, 0
     jne     .loop_reversing
 
