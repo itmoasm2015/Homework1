@@ -1,0 +1,5 @@
+cpp/
+*.o
+*.a
+hw1.h
+main

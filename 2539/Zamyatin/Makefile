@@ -1,19 +1,19 @@
 ASM_FLAGS = -f elf32
 CXX_FLAGS = -m32 -L. -I../../include
 
-all: tester
+all: test
 
 clean:
 	rm -f libhw.a
 	rm -f libhw.o
-	rm -f tester.o
-	rm -f tester
+	rm -f test.o
+	rm -f test
 
-tester: libhw.a tester.o
-	g++ -o tester $(CXX_FLAGS) tester.o -lhw
+test: libhw.a test.o
+	g++ -o test $(CXX_FLAGS) test.o -lhw
 
-tester.o: tester.cpp
-	g++ -o tester.o $(CXX_FLAGS) -c tester.cpp
+test.o: test.cpp
+	g++ -o test.o $(CXX_FLAGS) -c test.cpp
 
 libhw.a: libhw.o
 	ar rcs libhw.a libhw.o
