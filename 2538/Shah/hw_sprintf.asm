@@ -23,6 +23,7 @@ hw_sprintf:
     mov ebp, esp
     push esi
     push edi
+    push ebx
 
     mov edi, [ebp + 8] ; store ptr to out out_number
     mov esi, [ebp + 12] ; store format ptr
@@ -43,6 +44,7 @@ next_char:
     jne next_char
 
 .return:
+    pop ebx
     pop edi
     pop esi
     mov esp, ebp
