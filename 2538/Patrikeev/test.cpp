@@ -8,13 +8,17 @@ using namespace std;
 
 int main() {
 
-    char out[256];
-    hw_sprintf(out, "%8u=%-8u", 12345, 12345);
-    printf("%s", out);
-
-    //hw_sprintf(out, "%8u=%-8u", 1234, 1234);
+    char out[200];
+    hw_sprintf(out, "%+-+-    -+d %         +8ii", 123, -4324);
+    printf("%s\n", out);
     return 0;
 
+    hw_sprintf(out, "%8u=%-8u", 10, 10);
+    printf("%s\n", out);
+
+    hw_sprintf(out, "|%8u=%-8u|", 1234, 1234);
+    printf("%s\n", out);
+    
     //With thanks to Anton Belyi 2539
     hw_sprintf(out, "Hello world %d!\n", 239);
     printf("%s", out);
@@ -23,8 +27,6 @@ int main() {
     hw_sprintf(out, "<%12u=%-12i>\n", 1234, numeric_limits<int>::min());
     printf("%s", out);
     hw_sprintf(out, "<%12i=%-12u>\n", -1, -1);
-    printf("%s", out);
-    hw_sprintf(out, "%llu\n", (long long)-2);
     printf("%s", out);
     hw_sprintf(out, "%lli\n", (long long)-1);
     printf("%s", out);

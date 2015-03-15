@@ -109,11 +109,8 @@ hw_sprintf:
     inc     esi             ;;move (*format) pointer
     push    eax             ;;push char to be printed in future
     inc     ecx             ;;one more char to be printed 
-    cmp     byte al, 0
-    je      .print_pushed_chars ;;if EOL (incorrect format sequence) => print chars
-
-    cmp     byte al, 'l' 
-    jne     .print_pushed_chars  ;;(incorrect format sequence) => print chars
+    cmp     byte al, 'l'    
+    jne     .print_pushed_chars  ;;'lx' -incorrect format sequence => print chars
     jmp     set_long_flag        ;;'ll' has been encountered
 .long_flag_checked:
 
@@ -135,43 +132,37 @@ hw_sprintf:
     jmp     .print_pushed_chars
 
 .type_checked:
-.unsigned_flag_checked:
-;;all specifiers are OK, flags and "width" are set => print next number
-
+;;all specifiers are OK, flags(EBX) and "width"(EDX) are set => print next number
     jmp     print_next_number
+
 .next_number_printed:
-.clear_stack:
+    ;;we have encountered and proceed correct specifiers sequence => erase pushed chars
     mov     eax, ecx    ;;eax == ecx - number of pushed chars
     mov     ebx, 4      ;;multiplier
     mul     ebx         ;;eax = ecx * 4
-    add     esp, eax    ;;restore stack
+    add     esp, eax    ;;restore stack by number of pushed temporary chars
 
-    pop     eax         ;;unread last character
-    dec     esi         ;;move (*format) pointer back
-    
+    ;;stack is clear, go to next symbol:    
     jmp     .read_until_eol
      
 ;;this label pops chars from the stack(in reverse order)
 ;;and writes them to room, starting at [edi] (in forward order)
 ;;and then moves [edi] by the number of printed chars
-.print_pushed_chars:
-    mov     ebx, ecx                  ;;save number of chars to be printed
-    xor     edx, edx                  ;;edx == 1 if we should exit after this loop, else we should go to next char
+.print_pushed_chars
+    mov     ebx, ecx        ;;save number of chars to be printed
 .loop_print_chars:
     cmp     ecx, 0                    ;;check if there are any chars to be printed
     je      .end_print_pushed_chars   ;;no chars to be printed
     pop     eax                       ;;get next char to be printed(reverse order)
     mov     byte [edi + ecx - 1], al  ;;write char from the end of room(to get forward order)
     dec     ecx                       ;;one less char 
-    cmp     byte al, 0                ;;if current char == '\0', then we should exit after printing all chars
-    jne     .loop_print_chars
-    mov     edx, 1                    ;;set flag about exit
-    jmp     .loop_print_chars         ;;and continue to write the rest of bytes 
+    jmp     .loop_print_chars
 
 .end_print_pushed_chars:
-    add     edi, ebx                  ;;move (*out) by number of chars which are printed 
-    cmp     edx, 0                    ;;if we should continue, then do continue, else end of format string
-    je      .read_until_eol
+    mov     ecx, ebx    ;;restore number of chars which are printed
+    add     edi, ecx    ;;move (*out) by number of chars which are printed 
+    cmp     byte [edi - 1], 0   ;;check if last written symbol is '\0', if yes then stop reading
+    jne     .read_until_eol
 
 .end_read_until_eol:
 ;;we have proceed the whole format string
@@ -183,19 +174,14 @@ hw_sprintf:
     pop     ebp         ;;restore caller's stack frame
     ret
 ;;end hw_sprintf
-;;--------------------------------------------------------------------------------
 
 print_percent:
     mov     byte [edi], '%'
     inc     edi            ;;move to next (*out)
-    mov     byte al, [esi] ;;load next after '%' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp     hw_sprintf.clear_stack
+    ;;wrote '%' so erase pushed chars (they are unnecessary)
+    jmp     hw_sprintf.next_number_printed
 
 ;;these labels are convenient way to set flag if it has been encountered
-;;and move pointer to next char properly
 set_plus_flag:
     set_flag(plus_flag)
     jmp hw_sprintf.loop_specifiers
@@ -212,30 +198,22 @@ set_space_flag:
     set_flag(space_flag)
     jmp hw_sprintf.loop_specifiers
 
-type_signed:
-    mov     byte al, [esi] ;;load next after 'i\d' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
+type_signed:    ;;encountered 'i' or 'd' as the type
     jmp hw_sprintf.type_checked
 
-set_unsigned_flag:
+set_unsigned_flag:  ;;encountered 'u'
     set_flag(unsign_flag)
-    mov     byte al, [esi] ;;load next after 'u' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp hw_sprintf.unsigned_flag_checked
+    jmp hw_sprintf.type_checked
 
 set_long_flag:
     set_flag(long_flag)
-    mov     byte al, [esi] ;;load next after 'l' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
+    mov     byte al, [esi]  ;;load next char
+    inc     esi             ;;move (*format) pointer
+    push    eax             ;;push char to be printed in future
+    inc     ecx             ;;one more char to be printed 
     jmp hw_sprintf.long_flag_checked
 
-;;this function determines a kind of number, casts int->int64 (if necessary), 
+;;this label determines a kind of number, casts int->int64 (if necessary), 
 ;;sets flag(neg_flag) and prints as unsigned_int_64
 ;;--------------------------------------------------------------------------
 ;;all necessary parameters are already on the stack and in registers
@@ -251,6 +229,7 @@ print_next_number:
     push    edx     ;;pass arg 4 "width" to print_unsigned_long
     push    ebx     ;;pass arg 3 flags to print_unsigned_long
 
+    ;;eax holds address of next 4 bytes
     mov     eax, [next_ptr] ;;load address of next number
     mov     ecx, [eax]      ;;ECX == low_32_bits
     add     eax, 4
@@ -283,7 +262,6 @@ print_next_number:
 
 .int64:
     mov     edx, [eax]          ;;edx - high_32_bits
-                                ;;ecx - low_32_bits 
     add     eax, 4
     mov     [next_ptr], eax     ;;move pointer to next 32 bits
     test_flag(unsign_flag)
@@ -295,12 +273,11 @@ print_next_number:
 
     test    edx, edx        ;;is number negative? (check high part)
     jns     .call_printer   ;;if no, the just print it
-
-.invert_bits_and_inc:   ;;else do transformation(invert bits and +1)
+.invert_bits_and_inc:       ;;else do transformation(invert bits and +1)
     pop     edx         ;;pop high32_bits for transform
     pop     ecx         ;;pop low32_bits for transform
 
-    pop     ebx     ;;repush flags with mark-up
+    pop     ebx         ;;repush flags with mark-up
     set_flag(neg_flag)  ;;mark number as negative
     push    ebx
                         
@@ -327,27 +304,30 @@ print_next_number:
     jmp     .call_printer   
 
 .call_printer:
+    ;;caller-saved registers are already saved => make call
+
     call    print_unsigned_long ;;stack before call: high_32_bits : low_32_bits : flags : width
     add     edi, eax    ;;move [edi] on result of print_unsigned_long (length of representation)
     add     esp, 16     ;;clear arguments room (4 arguments were passed)
 
     ;;restore registers after call
     pop     edx
-    pop     ecx
+    pop     ecx     ;;restore number of pushed chars
     pop     eax
 
     jmp hw_sprintf.next_number_printed   ;;go back
 ;;end print_next_number
 
 
-;;prints unsigned long with checking flag (neg_flag)
-;;returns in EAX - total length of representation of printed number
-;;args: [high32:low32:flags:width]
+;;prints unsigned long with checking flag (neg_flag), add all necessary signs and makes shifts
+;;--------------------------------------------------------------------------------------------
+;;implicitly this function requires [EDI] to print number into, but it doesn't change it
+;;and returns in EAX total length of representation of printed number
+;;args: [high32:low32:flags:width] in that order
 print_unsigned_long:
-    push    ebp
+    push    ebp         ;;save stack frame
     mov     ebp, esp
-
-    push    ebx     ;;save callee-saved registers
+    push    ebx         ;;save callee-saved registers
     push    esi
     push    edi
 
@@ -394,30 +374,35 @@ print_unsigned_long:
 
 .sign_proceed:
 ;;check the binding, minimal width and filling with zeros:
-    ;;ecx holds length of number with possible '+-'
+    ;;ecx holds length of number (with '+-' if any)
     pop     edi     ;;restore [edi] to beginning of (*out)
     pop     esi     ;;restore [esi] to (*format)
     pop     ebx
+    ;;now they contain right values
+    ;;but we should save these registers again, because they are callee-saved
+    push    ebx
+    push    esi
+    push    edi
 
     cmp     ecx, edx                        ;;compare actual length with minimal "width"
     jge     .got_reverse_representation     ;;if ECX >= "width", then done, else we should proceed '0' and '-'
 
     sub     edx, ecx            ;;edx is how much room left free
 
-    ;;if '-' flag is not set, then we should fill the gap with '0' or ' ' depends on zero_flag:
-    test_flag(minus_flag)
-    jz      process_fill_gap    ;;we should fill the gap (of size EDX) with '0' or ' '
+    test_flag(minus_flag)       ;;if '-' is NOT set then we should fill the gap with '0' or ' '
+    jz      process_fill_gap    ;;fill the gap (of size EDX) with '0' or ' '
                                 ;;after process return to fill_gap_proceed
 
-    ;;else minus_flag is set, so do the shift
+    ;;else minus_flag is SET, so do the appropriate shift
     jmp     process_minus_flag ;;bind to left if necessary and fill the end with ' '
+                               ;;after process return to minus_flag_proceed
 .minus_flag_proceed:
 .fill_gap_proceed:
-    add     ecx, edx        ;;complete ecx to be fit to minimal width => ecx is a correct length of representation
+    add     ecx, edx        ;;complete ecx to be fit to minimal width => 
+                            ;;ecx now is a correct length of representation
 
 .got_reverse_representation:
     ;;now [edi...edi+ecx-1] contains right (but reverse) representation => let's reverse it again
-
     push    eax      ;;save EAX
     push    ecx      ;;save ECX
     push    esi      ;;save ESI
@@ -427,7 +412,7 @@ print_unsigned_long:
     xor     edx, edx ;;clear room for swaps
     mov     eax, ecx ;;eax := buffer size == (max(actual_length, "width"))
     shr     eax, 1   ;;eax := eax / 2   
-                     ;;so eax - number of iterations of swap
+                     ;;so EAX - number of iterations of swap
     mov     esi, edi ;;esi points to 0-th element
     lea     ebx, [edi + ecx - 1]  ;;ebx points to (n-1)-th element
 
@@ -437,12 +422,12 @@ print_unsigned_long:
 
 .loop_reversing:
     ;;do swap via the stack
-    mov     byte dl, [esi]
+    mov     byte dl, [esi]      ;;save [esi] in stack
     push    edx
-    mov     byte dl, [ebx]
-    mov     byte [esi], dl
+    mov     byte dl, [ebx]      ;;move [ebx] to DL
+    mov     byte [esi], dl      ;;move DL = [ebx] to [esi]
     pop     edx
-    mov     byte [ebx], dl
+    mov     byte [ebx], dl      ;;move DL = [esi] to [edx]
     ;;[esi] and [ebx] are swapped
     inc     esi     ;;move ESI forward
     dec     ebx     ;;move EBX back
@@ -457,31 +442,38 @@ print_unsigned_long:
     pop     ecx      ;;restore ECX
     pop     eax      ;;restore EAX
 
+    pop     edi      ;;restore callee-saved registers (from the beginning of function)
+    pop     esi
+    pop     ebx     
+
     ;;We have got forward representation!
     mov     eax, ecx    ;;move answer to EAX
     mov     esp, ebp
     pop     ebp
     ret                 ;;return total number of chars printed
 
+;;this label just adds '-' to the end of reverse representation
 add_neg_sign:
     mov     byte [edi], '-'     ;;add '-'
     inc     edi                 ;;move (*out)
-    inc     ecx                 ;;increment length of number
+    inc     ecx                 ;;increment length of representation
     jmp     print_unsigned_long.sign_proceed    ;;go back
 ;;end add_neg_sign
 
+;;this label just adds '+'\'-' to the end of reverse representation (if necessary)
 process_plus_flag:
-    test_flag(neg_flag)         ;;if number was negative
+    test_flag(neg_flag)                         ;;if number was negative
     jnz     print_unsigned_long.sign_proceed    ;;'-' is already written => go back
     ;;number is positive, so add '+'
     mov     byte [edi], '+'
     inc     edi
-    inc     ecx
+    inc     ecx     ;;increment length of representation
     jmp     print_unsigned_long.sign_proceed    ;;go back
 ;;end process_plus_flag
 
+;;this label just adds ' '\'-' to the end of reverse representation (if necessary)
 process_space_flag:   
-    test_flag(neg_flag)     ;;if number was negative
+    test_flag(neg_flag)                         ;;if number was negative
     jnz     print_unsigned_long.sign_proceed    ;;'-' is already written => go back
     ;;number is positive, so add ' '
     mov     byte [edi], ' '
@@ -491,57 +483,60 @@ process_space_flag:
 ;;end process_space_flag
 
 ;;fill gap of size EDX with '0' or ' ' depends on zero_flag
+;;gap is in positions [edi+ecx...edi+ecx+edx-1]
+;;------------------------------------------------------------------------
+;;doesn't return anything, but changes room of number's representation
 process_fill_gap:
     push    eax             ;;save eax (it will be the filling char)
+    push    edx             ;;save EDX == ("width" - actual_length) == size of the gap 
+    push    esi             ;;save ESI(for internal use)
     mov     al, ' '         ;;by default we should fill the gap with ' '
-    test_flag(zero_flag)    ;;should we check it with '0'?
-    jz      .do_fill        ;;if not, then process
+    test_flag(zero_flag)    ;;should we fill it with '0'?
+    jz      .do_fill        ;;if no, then process
     mov     al, '0'         ;;else change al to '0'
 
 .do_fill:
-    push    edx  ;;save EDX == ("width" - actual_length) == size of the gap 
-    push    esi  ;;save ESI
-
     lea     esi, [edi + ecx - 1] ;;esi points to the first position before the gap
                                  ;;[edi...edi+ecx-1]:[edi+ecx...edi+width-1]
                                  ;;_reverse_number__:__________gap__________
 .loop_fill:
     cmp     edx, 0  ;;how much zeros left?
     je      .end_loop_fill
-    mov     byte [esi + edx], al
+    mov     byte [esi + edx], al    ;;fill current char with appropriate symbol: '0' or ' '
     dec     edx
     jmp     .loop_fill
         
 .end_loop_fill:
-
-    pop     esi  ;;restore ESI and EDX
+    pop     esi  ;;restore registers for the case if we have done everything here.
     pop     edx
-    pop     eax  ;;restore EAX
+    pop     eax  
 
-    ;;if 0 flag is set and sign is present or flag_space is set too, the we should move the sign
+    ;;if 0 flag is set AND (sign is present) OR (flag_space is set), the we should move the sign
     ;;for example: 00000+10 -> +0000010
     ;;and 00000_10 -> _0000010
     test_flag(zero_flag)
-    jz      print_unsigned_long.fill_gap_proceed    ;;if '0' is not set, then exit
+    jz      print_unsigned_long.fill_gap_proceed    ;;if '0' is NOT set, then we have done everything here => go back
 
-    test_flag(neg_flag)     ;;if number is negative ('-' was written)
+    test_flag(neg_flag)     ;;if number is negative ('-' was written) we should move '-'
     je      .move_sign_to_the_end
 
-    test_flag(space_flag)   ;;if space is set (' ' after number)
+    test_flag(space_flag)   ;;if space is set (' ' after number) we should move ' '
     je      .move_sign_to_the_end
 
-    test_flag(plus_flag)    ;;if plus_flag is set(sign is present 100%)
+    test_flag(plus_flag)    ;;if plus_flag is set(sign is present 100%) we should move this sign
     je      .move_sign_to_the_end
 
-    jmp     print_unsigned_long.fill_gap_proceed ;;go back
+    jmp     print_unsigned_long.fill_gap_proceed ;;else we have done everything here => go back
 .move_sign_to_the_end:
-    push    eax     ;;save eax
-    push    ebx     ;;save ebx
+    push    eax     ;;eax will hold sign
+    push    ebx     ;;save ebx(for internal use)
+    
     lea     eax, [edi+ecx-1]    ;;load address of sign
     mov     byte bl, [eax]      ;;save sign in BL
     mov     byte [eax], '0'     ;;replace with '0'
-    add     eax, edx            ;;address of last symbol of representation
+    add     eax, edx            ;;EAX - address of last symbol of representation
     mov     byte [eax], bl      ;;set sign
+
     pop     ebx     ;;restore ebx
     pop     eax     ;;restore eax
     jmp     print_unsigned_long.fill_gap_proceed
