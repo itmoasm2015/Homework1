@@ -5,13 +5,12 @@
 extern "C"
 #endif
 __attribute__((cdecl))
-void hw_uitoa(uint32_t n, char* out);
+char* hw_ntoa(void* np, char* out, int flags, int minlength);
 
 #ifdef __cplusplus
 extern "C"
 #endif
 __attribute__((cdecl))
-void hw_itoa(int n, char* out);
-
+void hw_sprintf(char* out, char const* format, ...);
 
 #endif
