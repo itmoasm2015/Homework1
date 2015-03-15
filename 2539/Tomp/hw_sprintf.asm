@@ -166,7 +166,7 @@ ullformat:
         jmp .align
 ..@printPlus:
         test bl, PLUS
-        jz ..@printSpace
+        jz ..@printSpace ; check for space attribute - no sign to print
         mov byte [edi], '+'
         inc edi
         jmp .align

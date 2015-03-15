@@ -1,6 +1,4 @@
 #include "stdio.h"
-#include "unistd.h"
-#include "string.h"
 #include "../../include/hw1.h"
 
 char buf[1000];
@@ -20,5 +18,14 @@ int main() {
     test("50%%");
     test("A bigger test:\n\t* some integer %0+5d|\n\t* unsigned %0-30u", (int)-65535, (int)-32767);
     test("\t* some long integer %0 10lld|\n\t* unsigned long long %30llu", (long long)-65535, (long long)-32767);
+    test("%" "+" "-" "0"     "30" "ll" "d", (long long)-123);
+    test("%" "+" "-"         "30" "ll" "d", (long long)-123);
+    test("%" "+"     "0"     "30" "ll" "d", (long long) 123);
+    test("%" "+"             "30" "ll" "d", (long long) 123);
+    test("%"     "-" "0" " " "30" "ll" "u", (long long)-123);
+    test("%"     "-"     " " "30" "ll" "u", (long long)-123);
+    test("%"         "0" " " "30" "ll" "u", (long long) 123);
+    test("%"             " " "30" "ll" "u", (long long) 123);
+    test("%"                 "30" "ll" "u", (long long) 123);
     return 0;
 }
