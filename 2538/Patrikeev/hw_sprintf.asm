@@ -49,33 +49,30 @@ hw_sprintf:
 
 ;;this label reads format string and sets flags:
     xor     ebx, ebx        ;;ebx holds encountered flags 
-    xor     edx, edx        ;;edx holds format's width
 .read_format_chars:
+
+;;loop while specifiers are encountered:
+.loop_specifiers:
     mov     byte al, [esi]  ;;load next char 
     inc     esi             ;;move (*format) pointer
-    push    eax             ;;push char to be printed in future
+    push    eax             ;;push char to be printed in future (if incorrect occurs)
     inc     ecx             ;;one more char to be printed
     cmp     byte al, 0      
     je      .print_pushed_chars ;;if EOL, then print all already pushed chars and exit
 
 ;;check flags and set those one which have been encountered:
-;;and move (*format) pointer properly
     cmp     byte al, '0'
-    je      set_zero_flag    ;;set zero_flag and jump to .zero_flag_checked
-.zero_flag_checked:
-
+    je      set_zero_flag    ;;set zero_flag and jump to .loop_specifiers
+    
     cmp     byte al, '-'
-    je      set_minus_flag   ;;set minus_flag and jump to .minus_flag_checked
-.minus_flag_checked:
+    je      set_minus_flag   ;;set minus_flag and jump to .loop_specifiers
 
     cmp     byte al, '+'
-    je      set_plus_flag    ;;set plus_flag and jump to .plus_flag_checked
-.plus_flag_checked:
+    je      set_plus_flag    ;;set plus_flag and jump to .loop_specifiers 
 
     cmp     byte al, ' '
-    je      set_space_flag   ;;set space_flag and jump to .space_flag_checked
-.space_flag_checked:
-
+    je      set_space_flag   ;;set space_flag and jump to .loop_specifiers
+.end_loop_specifiers:
 
 ;;checks if digits sequence ("width") and parses it
 .parse_width:
@@ -190,7 +187,8 @@ hw_sprintf:
 
 print_percent:
     mov     byte [edi], '%'
-    mov     byte al, [esi] ;;load next after '*' char
+    inc     edi            ;;move to next (*out)
+    mov     byte al, [esi] ;;load next after '%' char
     inc     esi            ;;move (*format)
     push    eax            ;;push char to be printed in future
     inc     ecx            ;;one more char...
@@ -200,35 +198,19 @@ print_percent:
 ;;and move pointer to next char properly
 set_plus_flag:
     set_flag(plus_flag)
-    mov     byte al, [esi] ;;load next after '+' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp hw_sprintf.plus_flag_checked
+    jmp hw_sprintf.loop_specifiers
     
 set_minus_flag:
     set_flag(minus_flag)
-    mov     byte al, [esi] ;;load next after '-' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp hw_sprintf.minus_flag_checked
+    jmp hw_sprintf.loop_specifiers
 
 set_zero_flag:
     set_flag(zero_flag)
-    mov     byte al, [esi] ;;load next after '0' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp hw_sprintf.zero_flag_checked
+    jmp hw_sprintf.loop_specifiers
 
 set_space_flag:
     set_flag(space_flag)
-    mov     byte al, [esi] ;;load next after ' ' char
-    inc     esi            ;;move (*format)
-    push    eax            ;;push char to be printed in future
-    inc     ecx            ;;one more char...
-    jmp hw_sprintf.space_flag_checked
+    jmp hw_sprintf.loop_specifiers
 
 type_signed:
     mov     byte al, [esi] ;;load next after 'i\d' char
@@ -420,7 +402,10 @@ print_unsigned_long:
     jge     .got_reverse_representation     ;;if ECX >= "width", then done, else we should proceed '0' and '-'
 
     sub     edx, ecx            ;;edx is how much room left free
-    jmp     process_fill_gap    ;;we should fill the gap with '0' or ' '
+
+    ;;if '-' flag is not set, then we should fill the gap:
+    test_flag(minus_flag)
+    jz      process_fill_gap    ;;we should fill the gap (of size edx) with '0' or ' '
 
 .fill_gap_proceed:
 
@@ -518,20 +503,25 @@ process_fill_gap:
     lea     esi, [edi + ecx - 1] ;;esi points to the first position before the gap
                                  ;;[edi...edi+ecx-1]:[edi+ecx...edi+width-1]
                                  ;;_reverse_number__:__________gap__________
-.loop_set_to_zero:
+.loop_fill:
     cmp     edx, 0  ;;how much zeros left?
-    je      .end_loop_set_to_zero
+    je      .end_loop_fill
     mov     byte [esi + edx], al
     dec     edx
-    jmp     .loop_set_to_zero
+    jmp     .loop_fill
         
-.end_loop_set_to_zero:
+.end_loop_fill:
 
     pop     esi  ;;restore ESI and EDX
     pop     edx
     pop     eax  ;;restore EAX
 
-    ;;check if sign '+' is not on the end
+    ;;if 0 flag is set and sign is presend, we should move the sign
+    ;;for example: 00000+10 -> +0000010
+    test_flag(zero_flag)
+    jz      print_unsigned_long.fill_gap_proceed    ;;if '0' is not set, then exit
+
+    ;;check if sign '+'/'-' is not on the end
     cmp     byte [edi+ecx-1], '+'
     je      .move_sign_to_the_end    
 

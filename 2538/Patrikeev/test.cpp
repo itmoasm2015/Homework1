@@ -9,7 +9,19 @@ using namespace std;
 int main() {
 
     char out[256];
+    hw_sprintf(out, "%8u=%-8u\n", 4321, 4321);
+    printf("%s", out);
+    hw_sprintf(out, "%llu\n", (unsigned long long) (1LL << 60));
+    printf("%s", out);
+    hw_sprintf(out, "%lli\n", (long long) -1);
+    printf("%s", out);
+    return 0;
 
+    //With thanks to Anton Belyi 2539
+    hw_sprintf(out, "Hello world %d!\n", 239);
+    printf("%s", out);
+    hw_sprintf(out, "%0+5d\n", 51);
+    printf("%s", out);
     hw_sprintf(out, "<%12u=%-12i>\n", 1234, numeric_limits<int>::min());
     printf("%s", out);
     hw_sprintf(out, "<%12i=%-12u>\n", -1, -1);
@@ -40,6 +52,7 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "%+-010d=\n", 123);
     printf("%s", out);
+    
 
     return 0;
 }
