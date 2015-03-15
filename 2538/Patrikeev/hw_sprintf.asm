@@ -10,7 +10,7 @@ extern printf
 %assign space_flag   1 << 4 ;; ' ' specified
 %assign long_flag    1 << 5 ;; 'll' specified
 %assign unsign_flag  1 << 6 ;; 'u' specified
-%assign neg_flag     1 << 8 ;; current printing number is negative 
+%assign neg_flag     1 << 7 ;; current printing number is negative 
 
 section .bss
 next_ptr:   resq     1      ;;next_ptr is an address of next number to be printed
@@ -341,6 +341,7 @@ print_next_number:
 
 
 ;;prints unsigned long with checking flag (neg_flag)
+;;returns in EAX - total length of representation of printed number
 ;;args: [high32:low32:flags:width]
 print_unsigned_long:
     push    ebp
@@ -354,7 +355,7 @@ print_unsigned_long:
     mov     eax, [ebp + 12] ;;less-significant 32 bits: let's call it B
                             ;;so EDX:EAX == A:B
 
-    xor     ecx, ecx    ;;ECX is length of number in digits
+    xor     ecx, ecx    ;;ECX is total length of representation
     mov     ebx, 10     ;;divisor
 .divide_until_zero:
     mov     esi, eax  ;; save value of EAX==B in ESI
@@ -382,7 +383,7 @@ print_unsigned_long:
     mov     ebx, [ebp + 16] ;;flags
     mov     edx, [ebp + 20] ;;width
 
-    test_flag(neg_flag)  ;;if number was negative
+    test_flag(neg_flag)  ;;if number was negative print '-' and go to .sign_proceed
     jnz     add_neg_sign 
 
     test_flag(plus_flag)         ;;if '+' is set
@@ -403,15 +404,15 @@ print_unsigned_long:
 
     sub     edx, ecx            ;;edx is how much room left free
 
-    ;;if '-' flag is not set, then we should fill the gap:
+    ;;if '-' flag is not set, then we should fill the gap with '0' or ' ' depends on zero_flag:
     test_flag(minus_flag)
-    jz      process_fill_gap    ;;we should fill the gap (of size edx) with '0' or ' '
+    jz      process_fill_gap    ;;we should fill the gap (of size EDX) with '0' or ' '
+                                ;;after process return to fill_gap_proceed
 
-.fill_gap_proceed:
-
-    test_flag(minus_flag)      ;;bind to left?
-    jnz     process_minus_flag ;;bind to left if necessary and fill the end with ' '
+    ;;else minus_flag is set, so do the shift
+    jmp     process_minus_flag ;;bind to left if necessary and fill the end with ' '
 .minus_flag_proceed:
+.fill_gap_proceed:
     add     ecx, edx        ;;complete ecx to be fit to minimal width => ecx is a correct length of representation
 
 .got_reverse_representation:
@@ -489,8 +490,9 @@ process_space_flag:
     jmp     print_unsigned_long.sign_proceed    ;;go back
 ;;end process_space_flag
 
+;;fill gap of size EDX with '0' or ' ' depends on zero_flag
 process_fill_gap:
-    push    eax             ;;save eax (it will be filling char)
+    push    eax             ;;save eax (it will be the filling char)
     mov     al, ' '         ;;by default we should fill the gap with ' '
     test_flag(zero_flag)    ;;should we check it with '0'?
     jz      .do_fill        ;;if not, then process
@@ -516,29 +518,32 @@ process_fill_gap:
     pop     edx
     pop     eax  ;;restore EAX
 
-    ;;if 0 flag is set and sign is presend, we should move the sign
+    ;;if 0 flag is set and sign is present or flag_space is set too, the we should move the sign
     ;;for example: 00000+10 -> +0000010
+    ;;and 00000_10 -> _0000010
     test_flag(zero_flag)
     jz      print_unsigned_long.fill_gap_proceed    ;;if '0' is not set, then exit
 
-    ;;check if sign '+'/'-' is not on the end
-    cmp     byte [edi+ecx-1], '+'
-    je      .move_sign_to_the_end    
+    test_flag(neg_flag)     ;;if number is negative ('-' was written)
+    je      .move_sign_to_the_end
 
-    cmp     byte [edi+ecx-1], '-'
+    test_flag(space_flag)   ;;if space is set (' ' after number)
+    je      .move_sign_to_the_end
+
+    test_flag(plus_flag)    ;;if plus_flag is set(sign is present 100%)
     je      .move_sign_to_the_end
 
     jmp     print_unsigned_long.fill_gap_proceed ;;go back
 .move_sign_to_the_end:
-    push    eax
-    lea     eax, [edi+ecx-1]
-    push    ebx
-    mov     byte bl, [eax]
-    mov     byte [eax], '0'
-    add     eax, edx
-    mov     byte [eax], bl 
-    pop     ebx
-    pop     eax
+    push    eax     ;;save eax
+    push    ebx     ;;save ebx
+    lea     eax, [edi+ecx-1]    ;;load address of sign
+    mov     byte bl, [eax]      ;;save sign in BL
+    mov     byte [eax], '0'     ;;replace with '0'
+    add     eax, edx            ;;address of last symbol of representation
+    mov     byte [eax], bl      ;;set sign
+    pop     ebx     ;;restore ebx
+    pop     eax     ;;restore eax
     jmp     print_unsigned_long.fill_gap_proceed
 ;;end process_zero_flag
 
@@ -546,7 +551,7 @@ process_minus_flag:
     ;;'-' is set, so we should shift number to the left
     push    esi     ;;save ESI
     push    edx     ;;edx - how much times to shift ("width" - actual_length) == size of the gap
-    push    ecx     ;;ecx - length of number
+    push    ecx     ;;ecx - length of number with ('+'/'-' maybe)
     push    ebx     ;;ebx - for help
 
     xor     ebx, ebx    ;;room for movable char
@@ -558,13 +563,13 @@ process_minus_flag:
     mov     byte [esi + edx], bl    ;;move char from [esi] to [esi + edx]
     dec     ecx     
     dec     esi                     ;;move pointer to the previous char 
-    cmp     ecx, 0  ;;how much chars left to be moved?
-    jne     .loop_move_char     ;;we moved all the chars
+    cmp     ecx, 0                  ;;how much chars left to be moved?
+    jne     .loop_move_char     ;;if > 0 then loop others
 
 .end_loop_move_char:
     ;;we moved all the chars, so now we should fill the begginning with spaces
     ;;fill [edi...edi+edx-1] with ' '
-    mov     ecx, edx    ;;how much chars to be replaced with ' '
+    mov     ecx, edx    ;;loop iterator: how much chars to be replaced with ' '
 .loop_fill_with_spaces:
     mov     byte [edi + ecx - 1], ' '
     dec     ecx
