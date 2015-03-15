@@ -1,9 +1,4 @@
 global hw_sprintf
-global hw_ultoa
-global hw_ltoa
-global hw_utoa
-global hw_itoa
-
 
 section .bss
 string: 	resb 100		;space for converted number
@@ -202,7 +197,7 @@ hw_sprintf:
 	lea 	ecx, [esp + 28] ;first element of (...)
 	
 .main_loop:
-	nop
+	
 	cmp 	byte [esi], '%'	;escape sequence => start proceed
 	je sequence_process		;after sequence_process we will jump to add_number 
 							;with correct ESI, EDI and flags in EBX
@@ -304,9 +299,9 @@ sequence_process:
 	jne .copy_loop 			
 
 .sequence_process_end
-	nop 
-	nop
-	nop 
+	 
+	
+	 
 	;add 	esp, 12			;clear used stack
 	jmp add_number			;print number or '%' to *out
 
@@ -351,10 +346,6 @@ sequence_process:
 ; nothing on stack
 add_number:
 	;stack state: (+0)width; (+4)flags; (+8)pointer to data; (+12)sequence first position
-	nop
-	nop
-	nop
-	nop
 	mov 	ecx, [esp+8]
 	push 	esi 			;save pointer to next input char
 	push 	ecx 			;will be removed from stack before .done
@@ -493,7 +484,7 @@ add_number:
 	jmp .long
 
 .print_int
-	nop
+	
 	mov 	ecx, [esp]		;the same prepare code for hw_itoa and hw_uitoa
 	push 	esi 			;EDI - pointer to converted string
 	push 	dword [ecx] 	;EAX
