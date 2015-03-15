@@ -1,3 +1,12 @@
+;; 15.03.2015 CTD Assembler course Homework 1 solution
+;; Author: Dmitry Mukhutdinov, 2539
+;;
+;; General notes:
+;; All the functions what have C-style signature in their comment
+;; block are meant to be CDECL-compatible.
+;; For a non-CDECL function: if not explicitly said, then function
+;; doesn't guarantee to save any register except ESP and EBP - they are always saved
+
 %macro CDECL_ENTER 2
               push  ebx
               push  esi
@@ -39,7 +48,7 @@
 %define SET_FLAG(fl)   or   bl, fl
 %define UNSET_FLAG(fl) and  bl, ~fl
 
-%macro JCFLAG 3                     ; Conditional jump checking flag
+%macro JCFLAG 3                     ; Conditional flag checking jumps
               TEST_FLAG(%2)
               j%+1  %3
 %endmacro
@@ -55,7 +64,7 @@
 global hw_sprintf, hw_ntoa
 
 section .bss
-BYTE_STACK:   resb  1024
+BYTE_STACK:   resb  24              ; Temp buffer to store undigned number representation (guaranteed to fit for any long long)
 
 section .data
 CONST_10:     dd    10
@@ -78,6 +87,7 @@ hw_sprintf:
 	      lea   edx, [esp+28]   ; Store next argument address in EDX
 	      xor   eax, eax        ; Reset EAX - though we use only AL to store current symbol,
 				    ; we'll need full EAX to count LEA at line 127
+              cld                   ; Clear direction flag
 .main_loop:
               mov   al, [esi]
 	      JIFE  al, 0, .finish  ; Test for null-character (end of string)
@@ -220,14 +230,15 @@ __parse_sequence:
 ;; int minlength -- minimum length of output. Contents should be padded to minlength with spaces or zeroes, depending on flags
 ;;
 ;; Returns:
-;; Address of byte right after printed string
+;; Address of byte right after printed string (on the null-termitanor)
 hw_ntoa:
               CDECL_ENTER 0, 0
               mov   edx, [ebp+20]   ; number pointer
               mov   edi, [ebp+24]   ; output address
               mov   ebx, [ebp+28]   ; flags
                                     ; We will fetch minlength later
-
+              cld                   ; Clear direction flag (hw_ntoa is public, so it can be used outside of hw_sprintf)
+              
               mov   eax, [edx]      ; Get low half of number
 
               ;; Here code is branching to int preprocessing
@@ -268,11 +279,10 @@ hw_ntoa:
               mov   edx, [ebp+32]   ; minlength
               sub   edx, ecx        ; What we really need is the difference between real length and minlength
 
-              ;; If any of these flags are set, real length of string would be greater by 1
-              ;; However, resulting string contains null-terminator, which we should omit,
-              ;; so we increment the difference by 1 otherwise.
-              JFLAG (FLAG_NEGATIVE | FLAG_SIGN_ANYWAY | FLAG_PUT_WHITESPACE), .nondec
-              inc   edx
+              ;; If any of these flags are set, real length of string would be greater by 1,
+              ;; so we decrement the difference by 1.
+              JNFLAG (FLAG_NEGATIVE | FLAG_SIGN_ANYWAY | FLAG_PUT_WHITESPACE), .nondec 
+              dec   edx
 .nondec:
               xchg  ecx, edx        ; Save real number length
 
@@ -304,21 +314,20 @@ hw_ntoa:
 
               mov   eax, '0'
               rep   stosb
-.copy:
-              xchg  ecx, edx
-              rep   movsb           ; Copy esi to edi
-
+.copy:        
+              xchg  ecx, edx        
+              rep   movsb           ; Copy esi to edi 
+                                    
               JNFLAG FLAG_LEFT_ALIGN, .return ; Append with spaces if '-' flag is set
-              JCOND le, edx, 0, .return       ; and minlength > real length
-
-              dec   edi             ; Rewrite previously written null-terminator
-              xchg  ecx, edx
-              mov   eax, ' '
-              rep   stosb
-              mov   [edi], byte 0
-.return:
-              lea   eax, [edi-1]    ; Return current EDI
-              CDECL_RET
+              JCOND le, edx, 0, .return ; and minlength > real length
+                                    
+              xchg  ecx, edx        
+              mov   eax, ' '        
+              rep   stosb           
+.return:                            
+              mov   [edi], byte 0   ; Write null-terminator
+              mov   eax, edi        ; Return current EDI
+              CDECL_RET 
 
 
 ;; __hw_ultoa -- inner non-cdecl function
@@ -331,10 +340,11 @@ hw_ntoa:
 ;; Returns:
 ;; esi -- output string address
 ;; ecx -- output string length
+;; 
+;; Saves: ebx, edi
 __hw_ultoa:
-              lea   esi, [BYTE_STACK+1023]
-              mov   ecx, 1          ; Initial string length
-              mov   [esi], byte 0   ; This is gonna be the null-terminator
+              lea   esi, [BYTE_STACK+24]
+              xor   ecx, ecx        ; Initial string length
 
               call  .recur          ; Recursive sub-function puts chars on stack
               ret

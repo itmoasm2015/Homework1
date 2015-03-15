@@ -375,7 +375,6 @@ hw_sprintf:
 
 .bad_sequence
 	add		esp, 8				;drop out width and flags
-	pop		eax					;
 	mov		ecx, esi			;ecx <- pointer for after last symbol
 	pop		esi					;esi <- pointer for first symbol of sequence
 	sub		ecx, esi			;ecx <- count symbols in bad sequence 
