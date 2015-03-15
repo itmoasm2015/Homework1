@@ -5,6 +5,7 @@ section .text
 %define	FLAG_ALIGN	4
 %define	FLAG_ZERO	8
 %define FLAG_IS64BIT	16
+%define FLAG_IS_SIGNED 	32
 
 
 %define setf(x) 	or ebx, x
@@ -57,22 +58,39 @@ parse_format:
 	xor ebx, ebx
 .parse_flags_loop:
 	lodsb			; Skip '%' and load next char.
-	
-	%macro parse_flg 2
-	cmp al, %2
-	jne %%end
-	setf(%1)
-	jmp .parse_flags_loop
-	%endmacro
 
-	parse_flg FLAG_SHOW_SIGN 	'+'
-	parse_flg FLAG_SPACE		'-'
-	parse_flg FLAG_ALIGN		' '
-	parse_flg FLAG_ZERO		'0'
+	cmp al, '+'
+	je .set_flag_show_sign
+
+	cmp al, '-'
+	je .set_flag_space
+
+	cmp al, ' '
+	je .set_flag_align
+
+	cmp al, '0'
+	je .set_flag_zero
+	
+	jmp .parse_flags_finished
+
+.set_flag_show_sign:
+	setf(FLAG_SHOW_SIGN)
+	jmp .parse_flags_loop
+.set_flag_space:
+	setf(FLAG_SPACE)
+	jmp .parse_flags_loop
+.set_flag_align:
+	setf(FLAG_ALIGN)
+	jmp .parse_flags_loop
+.set_flag_zero:
+	setf(FLAG_ZERO)
+	jmp .parse_flags_loop
+
 .parse_flags_finished:
 ;;; stack: <last '%' position>(4) | ...
 
-.parse_width:
+;;; Parses format width and stores it in EDX.
+parse_width:
 ;;; Let EDX hold width value
 	xor edx, edx
 .parse_width_loop:
@@ -83,7 +101,7 @@ parse_format:
 
 	imul edx, 10	   	; Add current char to width number.
 	sub al, '0'
-	add edx, al
+	add edx, eax
 
 	lodsb
 	jmp .parse_width_loop
@@ -91,7 +109,10 @@ parse_format:
 	push edx
 ;;; stack: <format width>(4) | <last '%' position>(4) | ...
 
-.parse_size:
+;;; Parses argument bit width and sets FLAG_IS64BIT if argument is 64bit.
+;;; 32 bit: no special format
+;;; 64 bit: 'll' specificator
+parse_size:
 	cmp word [esi], 'll'
 	jne .parse_size_finished
 	setf(FLAG_IS64BIT)
@@ -100,7 +121,34 @@ parse_format:
 .parse_size_finished:
 ;;; stack: <format width>(4) | <last '%' position>(4) | ...
 
-.parse_type:
-	
+;;; Parses number type:
+;;; 'i' or 'd'	: decimal signed	: FLAG_IS_SIGNED is set
+;;; 'u'		: decimal unsigned	:
+;;; '%'		: percent sign		: '%' is printed out
+parse_type:
+	cmp al, 'd'
+	je .type_is_signed
+
+	cmp al, 'i'
+	je .type_is_signed
+
+	cmp al, 'u'
+	je .type_is_unsigned
+
+	cmp al, '%'
+	je .type_is_percent
+.type_is_signed:
+	setf(FLAG_IS_SIGNED)
+	jmp prepare_to_output
+.type_is_unsigned:
+	jmp prepare_to_output
+.type_is_percent:
+	;; Print percent sign
+	stosb
+	;; Discard <format width> and <last % location> from stack.
+	add esp, 8
+	jmp hw_sprintf.main_loop
+
+prepare_to_output:	
 
 	
