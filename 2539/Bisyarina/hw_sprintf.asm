@@ -419,3 +419,4 @@ hw_sprintf:
 	pop edi
 	pop esi
 	pop ebx
+	ret
