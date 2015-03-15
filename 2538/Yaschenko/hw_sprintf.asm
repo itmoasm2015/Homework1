@@ -8,6 +8,9 @@ FLAG_LL			equ	1 << 4
 FLAG_SIGNED 		equ	1 << 5
 FLAG_IS_NEGATIVE 	equ	1 << 6
 
+%define setf(x) or ebx, x
+%define testf(x) test ebx, x
+
 ; void hw_swprintf(char* out, char const* format, ...)
 	global hw_sprintf
 
@@ -84,7 +87,7 @@ hw_sprintf:
 .parse_size:			; parse length 'll' specificator
 	cmp word [esi], 'll'
 	jne .parse_type
-	or ebx, FLAG_LL
+	setf(FLAG_LL)
 	add esi, 2
 
 .parse_type:
@@ -103,7 +106,7 @@ hw_sprintf:
 	jmp .main_loop
 	
 .type_signed:
-	or ebx, FLAG_SIGNED
+	setf(FLAG_SIGNED)
 	jmp .prepare_output
 	
 .type_unsigned:
@@ -118,7 +121,7 @@ hw_sprintf:
 	;; At this point 'flags', 'width', 'size' and 'type' are parsed
 	;; for current '%' and appropriate flags (ebx) are set.
 	;; Store current argument to output in EDX:EAX.
-	test ebx, FLAG_LL
+	testf(FLAG_LL)
 	jnz .prepare_output_64
 
 .prepare_output_32:
@@ -126,19 +129,19 @@ hw_sprintf:
 	mov eax, [ecx]
 	add dword ecx, 4	; Move pointer to next argument.
 
-	test ebx, FLAG_SIGNED
+	testf(FLAG_SIGNED)
 	jz .prepare_output_done
 
 	cmp eax, 0
 	jl .prepare_output_32_neg
-	jmp .prepare_done
+	jmp .prepare_output_done
 
 .prepare_output_64:
 	mov eax, [ecx]		; Since argument is 64bit number, load it in EDX:EAX.
 	mov edx, [ecx + 4]
 	add dword ecx, 8	; Move pointer to next argument.
 
-	test ebx, FLAG_SIGNED
+	testf(FLAG_SIGNED)
 	jz .prepare_output_done
 
 	cmp edx, 0
@@ -146,44 +149,49 @@ hw_sprintf:
 	jmp .prepare_output_done
 
 .prepare_output_32_neg:
-	or ebx, FLAG_IS_NEGATIVE
+	setf(FLAG_IS_NEGATIVE)
 	neg eax
 	jmp .prepare_output_done
 
-.prepare_outout_64_neg:
-	or ebx, FLAG_IS_NEGATIVE
+.prepare_output_64_neg:
+	setf(FLAG_IS_NEGATIVE)
 	not edx			; negate 64bit number in EDX:EAX
 	not eax			
 	add eax, 1		; add 1 
 	adc edx, 0		; and add CF is eax was 0xFFFFFFFF
 
 .prepare_output_done:
-	test ebx, FLAG_ZERO	; if has zero pad
+	testf(FLAG_ZERO)	; if has zero pad
 	jz .calc_padding
 	call output_first_char
 
 .calc_padding:
+	push edi
+	mov edi, buf
+	call int_to_str
+	pop edi
+	testf(FLAG_PLUS | FLAG_SPACE | FLAG_IS_NEGATIVE)
 	
+	cmp eax, [esp + 4]	; Compare number length and 
 	
 
 ;;; format flags
 .char_plus:
-        or ebx, FLAG_PLUS
+        setf(FLAG_PLUS)
         jmp .parse_flags
 
 .char_space:
-        or ebx, FLAG_SPACE
+        setf(FLAG_SPACE)
         jmp .parse_flags
 
 .char_hyphen:
-        or ebx, FLAG_HYPHEN
+        setf(FLAG_HYPHEN)
         jmp .parse_flags
 
 .char_zero:
-        or ebx, FLAG_ZERO
+        setf(FLAG_ZERO)
         jmp .parse_flags
 ;;; end format flags
-   
 
 					; ______________________________
 					; subroutine epilogue
@@ -260,15 +268,15 @@ int_to_str:
 ;; EBX should contain desired flags (specified in header).
 ;; Does not affect stack and other registers except edi. 
 output_first_char:
-	or ebx, FLAG_IS_NEGATIVE
+	testf(FLAG_IS_NEGATIVE)
 	jnz .put_minus
 	
-	or ebx, FLAG_PLUS
+	testf(FLAG_PLUS)
 	jnz .put_plus
 	
-	or ebx, FLAG_SPACE
+	testf(FLAG_SPACE)
 	jnz .put_space
-	jmp .return
+	jmp .ret
 
 .put_minus:
 	mov byte [edi], '-'
