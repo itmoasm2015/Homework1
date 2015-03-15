@@ -9,12 +9,10 @@ using namespace std;
 int main() {
 
     char out[256];
-    hw_sprintf(out, "%8u=%-8u\n", 4321, 4321);
+    hw_sprintf(out, "%8u=%-8u", 12345, 12345);
     printf("%s", out);
-    hw_sprintf(out, "%llu\n", (unsigned long long) (1LL << 60));
-    printf("%s", out);
-    hw_sprintf(out, "%lli\n", (long long) -1);
-    printf("%s", out);
+
+    //hw_sprintf(out, "%8u=%-8u", 1234, 1234);
     return 0;
 
     //With thanks to Anton Belyi 2539
