@@ -4,3 +4,4 @@ all:
 
 test: all
 	gcc -o test -x c -m32 -g -L. test.c -lhw
+	./test

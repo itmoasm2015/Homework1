@@ -166,8 +166,14 @@ ullformat:
         jmp .align
 ..@printPlus:
         test bl, PLUS
-        jz .align
+        jz ..@printSpace
         mov byte [edi], '+'
+        inc edi
+        jmp .align
+..@printSpace:
+        test bl, SPACE_SIGN
+        jz .align
+        mov byte [edi], ' '
         inc edi
 .align:
         ; first print the number
