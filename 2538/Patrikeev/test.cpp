@@ -8,8 +8,8 @@ using namespace std;
 
 int main() {
 
-    char out[200];
-    hw_sprintf(out, "%+-+-    -+d %         +8ii", 123, -4324);
+    char out[106];
+    hw_sprintf(out, "%0100d", 99);
     printf("%s\n", out);
     return 0;
 

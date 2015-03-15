@@ -485,6 +485,7 @@ process_space_flag:
 ;;fill gap of size EDX with '0' or ' ' depends on zero_flag
 ;;gap is in positions [edi+ecx...edi+ecx+edx-1]
 ;;------------------------------------------------------------------------
+;;implicitly it relies on value of [EBX]
 ;;doesn't return anything, but changes room of number's representation
 process_fill_gap:
     push    eax             ;;save eax (it will be the filling char)
@@ -511,20 +512,20 @@ process_fill_gap:
     pop     edx
     pop     eax  
 
-    ;;if 0 flag is set AND (sign is present) OR (flag_space is set), the we should move the sign
+    ;;if 0 flag is set AND ((sign is present) OR (flag_space is set)), the we should move the sign
     ;;for example: 00000+10 -> +0000010
     ;;and 00000_10 -> _0000010
     test_flag(zero_flag)
     jz      print_unsigned_long.fill_gap_proceed    ;;if '0' is NOT set, then we have done everything here => go back
 
     test_flag(neg_flag)     ;;if number is negative ('-' was written) we should move '-'
-    je      .move_sign_to_the_end
+    jnz      .move_sign_to_the_end
 
     test_flag(space_flag)   ;;if space is set (' ' after number) we should move ' '
-    je      .move_sign_to_the_end
+    jnz      .move_sign_to_the_end
 
     test_flag(plus_flag)    ;;if plus_flag is set(sign is present 100%) we should move this sign
-    je      .move_sign_to_the_end
+    jnz      .move_sign_to_the_end
 
     jmp     print_unsigned_long.fill_gap_proceed ;;else we have done everything here => go back
 .move_sign_to_the_end:
