@@ -48,7 +48,7 @@
 %define SET_FLAG(fl)   or   bl, fl
 %define UNSET_FLAG(fl) and  bl, ~fl
 
-%macro JCFLAG 3                     ; Conditional jump checking flag
+%macro JCFLAG 3                     ; Conditional flag checking jumps
               TEST_FLAG(%2)
               j%+1  %3
 %endmacro
