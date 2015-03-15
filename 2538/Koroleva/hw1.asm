@@ -44,6 +44,7 @@ write_unsigned:
 	mov eax, [esi]	    ;младшие биты чиселка
 	add esi, 4          
 	mov edx, [esi]      ;старшие биты чиселка
+	add esi, 4
 	push esi
 
 .long_loop
