@@ -156,9 +156,13 @@ ullformat:
         mov byte [edi], '-'
         inc edi
         ; we have printed the sign;
-        ; let's print the number as a positive one
-        neg eax
-        neg edx
+        ; let's negate the number and print as a positive one
+        not eax
+        inc eax
+        test bl, LONG_LONG
+        jz .align ; in this case, edx is already zero
+        not edx
+        adc edx, 0
         jmp .align
 ..@printPlus:
         test bl, PLUS
@@ -182,9 +186,10 @@ ullformat:
         mov edi, [esp + 4]
         cld
         repnz scasb
-        mov al, ' '
+        jne .exit ; the last symbol was not \0; number enough long
         dec edi
         inc ecx
+        mov al, ' '
         rep stosb
         mov byte [edi], 0
         jmp .exit
