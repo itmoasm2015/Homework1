@@ -1,39 +1,63 @@
 global hw_sprintf
 
+;if [esi] shows flag, set this flag into al
+;first argument  - flag symbol
+;second argument - label to go in case of not detecting this flag
+;third argument  - flag number (number with one setted bit)
 %macro parse_flag 3 
 	cmp		[esi], byte %1
-	jne		short %2
+	jne		%2
 	or		al, %3
 	inc		esi
 	mov		ah, 1
 %endmacro
 
+;get next function argument. address always in [ebp - 16]
+;argument - where to write this function argument
 %macro get_arg 1
+	mov		ecx, [ebp - 16]
 	mov		%1, [ecx]
 	add		ecx, 4
+	mov		[ebp - 16], ecx
 %endmacro
 
+;get two next function argument. use for long long numbers.
+;arguments - where to write this function arguments
+%macro get_args 2
+	mov		ecx, [ebp - 16]
+	mov		%1, [ecx]
+	add		ecx, 4
+	mov		%2, [ecx]
+	add		ecx, 4
+	mov		[ebp - 16], ecx
+%endmacro
+
+;reverse and copy eax bytes from [number] to [edi]  
 %macro copy 0
-	push	edx
+	push	edx					;save current state
 	push	ecx
 	push	ebx
 	
-	mov		edx, number
-	add		edx, eax
-	dec		edx
-	mov		ecx, eax
+	mov		edx, number			;
+	add		edx, eax			; 
+	dec		edx					;edx point to last symbol in number
+	mov		ecx, eax			;set count of repeating
 
-%%lp: mov		bl, [edx]
-	mov		[edi], bl
-	dec		edx
-	inc		edi
+%%lp: mov		bl, [edx]		;
+	mov		[edi], bl			;mov [edi], [edx]
+	dec		edx					
+	inc		edi					
 	loop	%%lp
 
-	pop		ebx
+	pop		ebx					;load current state
 	pop		ecx
 	pop		edx
 %endmacro
 
+;check if the flag was setted and write sign symbol if needed
+;first argument  - flag number
+;second argument - sign symbol
+;third argument  - label to go in case of flag wasn't setted
 %macro check_flag 3
 	test	al, %1 			
 	jz		%3		
@@ -41,137 +65,147 @@ global hw_sprintf
 	inc		edi
 %endmacro
 
-
 section .text
-	; int hw_unsigned_int_to_string(x, f)
-	; return size of string representation unsigned int x
-	; int f - mask of flags, use flags '+' and ' ' 
+
+;int hw_unsigned_int_to_string(unsigned int x, unsigned int f)
+;write	string representation of x to [number] in reverse order
+;if format demand sign - sign will be written too, 
+;also write '-' if cast from negative signed int to unsigned int
+;return size of string representation unsigned int x
+;low 5 bytes of f - mask of flags
+;use minus_cast_flag, plus_flag and space_flag 
+
 hw_unsigned_int_to_string:
-	push	ebp
+	push	ebp					;save current state
 	mov		ebp, esp
 	push	edi
 	push	ecx
 	
-	mov		edi, number
-	mov		eax, [ebp + 8]
+	mov		eax, [ebp + 8]		;eax <- first argument (unsigned int)
+	mov		edi, number			;edi - pointer for writing
+    mov ecx, 10					;ecx <- base of numeral system  
 
-    mov ecx, 10
 .loop:
-    xor edx, edx
-    div ecx
-    add edx, '0'
-    mov [edi], edx
+    xor edx, edx				
+    div ecx						;div edx:eax to ecx, in edx - current digit
+    add edx, '0'				;compute digit_symbol code
+    mov [edi], edx				;write digit to edi
     inc edi
-    test eax, eax
+    test eax, eax				;check that quotient isn't zero
     jnz .loop
 	
-	mov		eax, [ebp + 12]
+	mov		eax, [ebp + 12]		;eax <-flags
+	;check flags and write sign with macro
+
 	check_flag minus_cast_flag, '-', .no_cast_minus
-	jmp		.end
+	jmp		short .end
 .no_cast_minus
 	check_flag plus_flag, '+', .no_plus
-	jmp		.end
+	jmp		short .end
 .no_plus
 	check_flag space_flag, ' ', .end
 .end
-	mov		eax, edi
-	sub		eax, number
 	
-	pop		ecx
+	mov		eax, edi			;
+	sub		eax, number			;eax <- count of recorded bytes
+	
+	pop		ecx					;load current state
 	pop		edi
 	mov		esp, ebp
 	pop		ebp
 	ret
 
 
+;int hw_unsigned_long_long_to_string(unsigned long long x, unsigned int f)
+;full analogue of hw_unsigned_int_to_string for unsigned long long
 
-; hw_luitoa(unsigned long long, char *)
-; writes string representation of the first @param to second @param
-; return length of string representation of the first @param
 hw_unsigned_long_long_to_string
-    push	ebp
+    push	ebp					;save current state
     mov		ebp, esp
     push	edi
 	push	esi
     push	ecx
 
-    mov		eax, [ebp + 8]
-    mov		edx, [ebp + 12]
-	mov		edi, number
-    mov		ecx, 10
+    mov		eax, [ebp + 8]		;
+    mov		edx, [ebp + 12]		;edx:eax <- first argument
+	mov		edi, number			;edi <- pointer for writing 
+    mov		ecx, 10				;ecx <- base of numeral system
 
-.loop: ; current number - (edx:eax)
+.loop:	; current number - (edx:eax)
         ; edx - high_half
         ; eax - low_half
-    mov		ebx, eax	;save low_half to ebx
+    mov		ebx, eax			;save low_half to ebx
     mov		eax, edx 
     xor		edx, edx	
-    div		ecx         ; div (0:high_half) by 10
-    mov		esi, eax
+    div		ecx					;div (0:high_half) by base
+    mov		esi, eax			;save high_half_quotient to esi
     mov		eax, ebx
-    div		ecx         ; div (high_half_rem:low_half) by 10
-    add		edx, '0'
-    mov		[edi], edx
-    inc		edi
-    mov		edx, esi
+    div		ecx					;div (high_half_rem:low_half) by base
+    add		edx, '0'			;
+    mov		[edi], edx			;write digit to edi
+    inc		edi					;
+    mov		edx, esi			;load high_half_quotient
     test	eax, eax
     jne		.loop
     test	edx, edx
     jne		.loop
 
-	mov		eax, [ebp + 16]
-	
+	mov		eax, [ebp + 16]		;eax <- flags
+	;check flags with macro
+
 	check_flag minus_cast_flag, '-', .no_cast_minus
-	jmp		.end
+	jmp		short .end
 .no_cast_minus
 	check_flag plus_flag, '+', .no_plus
-	jmp		.end
+	jmp		short .end
 .no_plus
 	check_flag space_flag, ' ', .end
 .end
 
-	mov		eax, edi
-	sub		eax, number
+	mov		eax, edi			;
+	sub		eax, number			;eax <- count of recorded bytes
 	
-    pop		ecx
+    pop		ecx					;load current state
 	pop		esi
 	pop		edi
     mov		esp, ebp
     pop		ebp
 	ret
 
+;void hw_sprintf(char* out, const char* format, ...)
+;write string from format to out with substitution of escape sequence to arguments.
+;for full information see https://github.com/itmoasm2015/Homework1/blob/master/task.pdf
 
 hw_sprintf:
-	push	ebp
+	push	ebp					;save current state
 	mov		ebp, esp
 	push	edi
 	push	esi
 	push	ebx
 	
-	; get first and second argument
-	mov		edi, [ebp + 8]		;out
-	mov		esi, [ebp + 12]		;format
-	lea		ecx, [ebp + 16]		;args
-	push	ecx
+	mov		edi, [ebp + 8]		;edi <- out
+	mov		esi, [ebp + 12]		;esi <- format
+	lea		ecx, [ebp + 16]		;
+	push	ecx					;save pointer for arguments to [ebp - 16]  
 	
-	; check if format is empty
+	;check if format is empty
 	cmp		[esi], byte 0
 	je		.end	
 
 .main_loop
-	push	esi
-	cmp		[esi], byte '%'
-	jne		.just_print
+	push	esi					;save current pointer for format
+	cmp		[esi], byte '%'		;check start escape sequence
+	jne		.just_print_one_pop
 	
 	inc		esi
 	
-	cmp		[esi], byte 0
-	je		.print_last_symbol
+	cmp		[esi], byte 0		;check if string ends with '%'	
+	je		.print_last_symbol	
 
 	;parse flags
-	xor		al, al
+	xor		al, al				;al for flags
 .plus
-	mov		ah, 0
+	mov		ah, 0				;ah set to 1 if any of flags was found, else it will be zero
 	parse_flag '+', .space, plus_flag
 .space
 	parse_flag ' ', .minus, space_flag
@@ -181,31 +215,29 @@ hw_sprintf:
 	parse_flag '0', .end_parse_flag, zero_flag
 .end_parse_flag
 	test	ah, ah	
-	jne		.plus
-	push	eax		;save flags to stack
+	jne		.plus				;if flag was found, continue
+	push	eax					;save flags to stack
 
 	;parse width	
-		
-	xor		eax, eax
-	mov		ecx, 10
+	xor		eax, eax			;eax for width
+	mov		ecx, 10				;ecx <- base of numeral system
 .loop_width
-	xor		ebx, ebx
-	mov		bl, [esi]
-	sub		bl, '0'
-	cmp		bl, 9
+	xor		ebx, ebx			;
+	mov		bl, [esi]			;bl <- current symbol
+	sub		bl, '0'				;
+	cmp		bl, 9				;check that bl is digit
 	ja		.end_parse_width
 	mul		ecx
 	add		eax, ebx
 	inc		esi
-	jmp		.loop_width
+	jmp		short .loop_width
 .end_parse_width
 	pop		ebx
-	push	eax ; save width to stack
-	push	ebx ; save flags to top of stack
+	push	eax					; save width to stack
+	push	ebx					; save flags to top of stack
 
 	;parse size
-
-	cmp		[esi], byte 'l'
+	cmp		[esi], byte 'l'		;check ll 
 	jne		.print_int
 	inc		esi
 	cmp		[esi], byte 'l'
@@ -213,10 +245,11 @@ hw_sprintf:
 	inc		esi
 	
 	;print long long
-	cmp		[esi], byte 'u'
+	;parse type
+	cmp		[esi], byte 'u'		
 	je		.print_unsigned_long_long
-	cmp		[esi], byte '%'				;may be not need
-	je		.just_print
+	cmp		[esi], byte '%'				
+	je		.just_print_three_pop
 	cmp		[esi], byte 'i'
 	je		.print_signed_long_long
 	cmp		[esi], byte 'd'
@@ -224,42 +257,37 @@ hw_sprintf:
 	jmp		.bad_sequence	
 
 .print_signed_long_long
-	mov		ecx, [ebp - 16]
-	get_arg eax
-	get_arg edx
-	mov		[ebp - 16], ecx
-	cmp		edx, 0
+	get_args eax, edx			;edx:eax <- signed long argument
+	cmp		edx, 0				;check the argument is negative
 	jge		.print_unsigned_long_long2
 	
-	not		eax
+	not		eax					;bit magic for negate number 
 	not		edx
 	add		eax, 1
 	adc		edx, 0
-	pop		ebx
+	pop		ebx					;set minus_cast_flag
 	or		bl, minus_cast_flag
 	push	ebx
-	jmp		.print_unsigned_long_long2
+	jmp		short .print_unsigned_long_long2
 
 .print_unsigned_long_long
-	mov		ecx, [ebp - 16]
-	get_arg eax
-	get_arg edx
-	mov		[ebp - 16], ecx
+	get_args eax, edx			;edx:eax <- unsigned long argument
 
 .print_unsigned_long_long2
-	inc		esi
+	inc		esi					
 	push	edx
 	push	eax
 	call	hw_unsigned_long_long_to_string		
 	pop		ebx
 	pop		ebx
-	jmp		.print_all
+	jmp		short .print_all
 
 .print_int
+	;parse type
 	cmp		[esi], byte 'u'
 	je		.print_unsigned_int
 	cmp		[esi], byte '%'
-	je		.just_print
+	je		.just_print_three_pop
 	cmp		[esi], byte 'i'
 	je		.print_signed_int
 	cmp		[esi], byte 'd'
@@ -267,39 +295,37 @@ hw_sprintf:
 	jmp		.bad_sequence
 
 .print_signed_int
-	mov		ecx, [ebp - 16]
-	get_arg ebx
-	mov		[ebp - 16], ecx
-	cmp		ebx, 0
+	get_arg ebx					;ebx <- signed int argument
+	cmp		ebx, 0				;check the argument is negative
 	jge		.print_unsigned_int2
-	not		ebx
+	not		ebx					;bit magic for negate number
 	add		ebx, 1
-	pop		eax
-	or		al, minus_cast_flag
+	pop		eax					;set minus_cast_flag
+	or		al, minus_cast_flag	
 	push	eax
-	jmp		.print_unsigned_int2
+	jmp		short .print_unsigned_int2
 	
 .print_unsigned_int
-	mov		ecx, [ebp - 16]
 	get_arg ebx
-	mov		[ebp - 16], ecx
 .print_unsigned_int2
 	inc		esi
 	push	ebx
 	call	hw_unsigned_int_to_string ;eax <- length
-	pop		ebx				;this is number
+	pop		ebx					
 .print_all	
-	pop		edx				;flags
-	pop		ebx				;width
-	cmp		eax, ebx		;
-	jae		.just_print_int
+	pop		edx					;flags
+	pop		ebx					;width
+	cmp		eax, ebx			;
+	jae		.just_print_all
 	
-	mov		ecx, ebx	;ecx <- count of not number synbols
+	mov		ecx, ebx			;ecx <- count of non-digit symbols
 	sub		ecx, eax
 	
-	test	dl, minus_flag
+	test	dl, minus_flag		;check minus_flag
 	jz		.not_minus_flag
-	copy
+
+	;minus_flag write
+	copy						
 	mov		al, ' '
 	rep		stosb
 	jmp		.end_main_loop
@@ -308,26 +334,26 @@ hw_sprintf:
 	test	dl, zero_flag
 	jz		.not_zero_flag
 	
-	dec		eax					;WTF
+	;zero_flag write
+	dec		eax					;for signed length without sign
 	mov		ebx, number			;
-	add		ebx, eax
-	cmp		[ebx], byte '+'
+	add		ebx, eax			;ebx <- last symbol of reverse string in label number
+	cmp		[ebx], byte '+'		;check if it is sign
 	je		.signed
 	cmp		[ebx], byte '-'
 	je		.signed
 	cmp		[ebx], byte ' '
-	je		.signed
-	inc		eax
-	jmp		.end_signed
+	je		.signed				
+	inc		eax					;without sign
+	jmp		short .end_signed
 
 .signed
-	push	eax
+	push	eax					;print sign
 	mov		al, [ebx]
 	stosb
 	pop		eax
 .end_signed
-	push	eax
-
+	push	eax					;print without sign
 	mov		al, '0'
 	rep		stosb
 	pop		eax
@@ -335,7 +361,7 @@ hw_sprintf:
 	jmp		.end_main_loop
 
 .not_zero_flag
-	
+	;not zero_flag and not minus_flag write
 	push	eax
 	mov		al, ' '
 	rep		stosb
@@ -343,40 +369,42 @@ hw_sprintf:
 	copy	
 	jmp		.end_main_loop
 
-.just_print_int
+.just_print_all
 	copy
 	jmp		.end_main_loop
 
 .bad_sequence
-	pop		eax
-	pop		eax
-	mov		ecx, esi
-	pop		esi
-	sub		ecx, esi
+	add		esp, 8				;drop out width and flags
+	pop		eax					;
+	mov		ecx, esi			;ecx <- pointer for after last symbol
+	pop		esi					;esi <- pointer for first symbol of sequence
+	sub		ecx, esi			;ecx <- count symbols in bad sequence 
 	cld
 	rep		movsb
 	jmp		.end_main_loop
 
-
-.just_print
+.just_print_three_pop
+	add		esp, 8				;drop out width and flags
+.just_print_one_pop
+	add		esp, 4				;drop out pointer for first symbol of sequence
 	cld
 	movsb
 
 .end_main_loop
 	cmp		[esi], byte 0
 	jne		.main_loop 
-	jmp		.end
+	jmp		short .end
 
 .print_last_symbol
+	add		esp, 4
 	dec		esi
-	mov		al, [esi]
-	mov		[edi], al
-	inc		edi
+	cld
+	movsb
 
 .end
 	mov		[edi], byte 0
 	
-	pop		ecx
+	pop		ecx					;load current state
 	pop		ebx
 	pop		esi
 	pop		edi
@@ -386,13 +414,11 @@ hw_sprintf:
 	ret
 
 section .bss
-number	resb 20
+number	resb 21					;buffer for writing number
 
 section .data
-plus_flag		equ 1
+plus_flag		equ 1			;flags
 space_flag		equ 2
 minus_flag		equ 4
 zero_flag		equ 8
 minus_cast_flag equ 16 
-
-
