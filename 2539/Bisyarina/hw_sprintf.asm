@@ -2,12 +2,12 @@ global hw_sprintf
 
 section .bss
 
-width:	resd 1
-flag:	resd 1
+width:	resd 1			; variable to store current width if it is set
+flag:	resd 1			; variable to store current flags of command sequence
 
 section .text
-
-SHOW_SIGN		equ 1
+;;; flags showing current command sequence state
+SHOW_SIGN		equ 1		
 SPACE_BEFORE		equ 1 << 1
 LEFT_ALIGN		equ 1 << 2
 ZERO_SYMB_COMPL	equ 1 << 3
@@ -17,70 +17,62 @@ IS_SIGNED		equ 1 << 6
 IS_NEGATIVE		equ 1 << 7
 
 hw_sprintf:
-	
-;; saving STACK pointer to function arguments
-	mov eax, esp
+	mov eax, esp 		; saving STACK pointer to function arguments 
 
-;; put on STACK callee-save registers
-	push ebx
+	push ebx 		; put on STACK callee-save registers
 	push esi
 	push edi
 	push ebp
-;; put destination pointer address to EDI
-;; EDI - address to write next char of output
+	
 	add eax, 4
-	mov edi, [eax]
+	mov edi, [eax] 	; put destination pointer address to EDI
 	add eax, 4
-
-;; put format string pointer to ESI
-;; ESI - pointer to current char of format string
-	mov esi, [eax]
+	mov esi, [eax] 	; put pointer to format string beginning to ESI
 	add eax, 4
+	mov ebx, eax 		; put pointer to STACK arguments to EBX
 
-;; put pointer to STACK arguments to EBX
-;; EBX - pointer to current argument to process
-	mov ebx, eax
-
-;; Main function that parses format string from ESI by char
+;;; Main function that parses format string from ESI
+;;; Processes it and puts result to EDI
 .parse_format_char:
 	mov al, [esi]
 	inc esi
 	cmp al, '%'
 	jne .add_char_to_out
 
-	dec esi
+	dec esi		; if '%' found try to parse command sequence
 	mov ebp, esi
 	jmp .parse_comm_seq
-.finish_parse_char:	
+.finish_parse_char: 		;checking if last processed symbol is not terminal
 	cmp al, 0
 	je .exit
 	jmp .parse_format_char
-;; Adds symbol from AL to address in EDI and increments EDI
-;; Return to finishing symbol
-.add_char_to_out:
+
+.add_char_to_out: 		;Adds symbol from AL to address in EDI and increments EDI
 	mov [edi], al
 	inc edi
 	jmp .finish_parse_char
 
 ;;; ESI points to the beginning of command sequence
-;;; EBP points to symbol
+;;; EBP points to current symbol of command sequence
+;;; Function parses command sequence and adds result to out buffer
+;;; If incorrect sequence symbol from ESI put to out buffer, ESI incremented
 .parse_comm_seq:
 	xor al, al
-	mov [flag], al
+	mov [flag], al		; initialising flags and width with 0
 	mov [width], al
-.parse_flags:
+.parse_flags:			;parsing flags
 	inc ebp
 	mov al, [ebp]
-.check_sign:
+.check_sign:			; check for sign flag
 	cmp al, '+'
 	jne .check_space
 	
 	mov edx, [flag]
-	or edx, SHOW_SIGN
+	or edx, SHOW_SIGN	
 	mov [flag], edx
 
 	jmp .parse_flags
-.check_space:
+.check_space: 			; check for space-before-number flag
 	cmp al, ' '
 	jne .check_right_align
 
@@ -89,7 +81,7 @@ hw_sprintf:
 	mov [flag], edx
 
 	jmp .parse_flags
-.check_right_align:
+.check_right_align:		; check for left alignment flag
 	cmp al, '-'
 	jne .check_zero_compl
 
@@ -98,7 +90,7 @@ hw_sprintf:
 	mov [flag], edx
 
 	jmp .parse_flags
-.check_zero_compl:
+.check_zero_compl: 		; check for completing with zeros flag
 	cmp al, '0'
 	jne .check_set_width
 
@@ -107,8 +99,8 @@ hw_sprintf:
 	mov [flag], edx
 	
 	jmp .parse_flags
-.check_set_width:
-	cmp al, '1'
+.check_set_width: 		; check if minimal width is set
+	cmp al, '1'		; possible parsing of first number
 	jl .check_set_ll
 	cmp al, '9'
 	jg .check_set_ll
@@ -120,7 +112,7 @@ hw_sprintf:
 	sub al, '0'
 	add [width], al
 
-.check_set_not_first_num: 
+.check_set_not_first_num: 	; possible parsing second and further symbols
 	inc ebp
 	mov al, [ebp]
 	
@@ -130,8 +122,8 @@ hw_sprintf:
 	cmp al, '9'
 	jg .check_set_ll
 	
-	sub al, '0'
-	push ecx
+	sub al, '0'		; width is parsed by multiplying result of previous stage by 10
+	push ecx		; and adding current figure
 	push ebx
 	push edx
 
@@ -152,7 +144,7 @@ hw_sprintf:
 	
 	jmp .check_set_not_first_num 
 
-.check_set_ll:
+.check_set_ll:			; checking if a sequence of two 'l' begins in current symbol
 	cmp al, 'l'
 	jne .check_set_type
 	
@@ -160,7 +152,7 @@ hw_sprintf:
 	mov al, [ebp]
 	
 	cmp al, 'l'
-	jne .incorrect_comm_seq
+	jne .incorrect_comm_seq	; if only one 'l' found the sequence is incorrect
 
 	mov edx, [flag]
 	or edx, IS_LONG_LONG
@@ -170,113 +162,105 @@ hw_sprintf:
 	mov al, [ebp]
 	jmp .check_set_type
 
-.check_set_type:
+.check_set_type:		; setting flags of type of a value
 	cmp al, '%'
-	je .process_percent_type
-
+	je .process_percent_type 
 	cmp al, 'u'
 	je .put_out_value
-
 	cmp al, 'i'
 	je .set_signed
-
 	cmp al, 'd'
 	je .set_signed
-
 	jmp .incorrect_comm_seq
 
-.set_signed:
+.set_signed: 			; set IS_SIGNED flag state
 	mov edx, [flag]
 	or edx, IS_SIGNED
 	mov [flag], edx
 	jmp .put_out_value
 
-.process_percent_type:
+.process_percent_type:		; puts to out buffer symbol '%' ignoring
 	inc ebp
 	mov esi, ebp
 	jmp .add_char_to_out
-
-;; Puts ESI to symbol after end of line of command sequence from EBP
-;; Puts value from stack to edx:eax
+;;; Function sets ESI after command sequence
+;;; Puts value in the way specified by flag
 .put_out_value:
 	mov esi, ebp
 	inc esi
 	
-	mov eax, [flag]
+	mov eax, [flag]		; determine if value is long long or not 
 	and eax, IS_LONG_LONG
 	cmp eax, 0
 	jne .take_from_stack_long
-
-	xor edx, edx
+.take_from_stack_int:			; process 32-bit number
+	xor edx, edx			; set hi part of value with 0 and treat as long
 	mov eax, [ebx]
 	add ebx, 4
 
 	mov ecx, [flag]
-	and ecx, IS_SIGNED
+	and ecx, IS_SIGNED		; check if value is singed or not
 	cmp ecx, 0
 	je .parse_num
-
 	cmp eax, 0
 	jnl .parse_num
+	
 	neg eax
-
-	mov ecx, [flag]
+	mov ecx, [flag]		; if signed and negative, save sign and negate
 	or ecx, IS_NEGATIVE
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
 
 	jmp .parse_num
-.take_from_stack_long:
+.take_from_stack_long:			; process 64-bit number
 	mov eax, [ebx]
 	add ebx, 4
 	mov edx, [ebx]
 	add ebx, 4
 
 	mov ecx, [flag]
-	and ecx, IS_SIGNED
+	and ecx, IS_SIGNED		; check if value is singed or not
 	cmp ecx, 0
 	je .parse_num
-
 	cmp edx, 0
 	jnl .parse_num
 
-	neg eax
+	neg eax  			; if signed and negative, save sign and negate
 	adc edx, 0
 	neg edx
-	
 	mov ecx, [flag]
 	or ecx, IS_NEGATIVE
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
 
-;; Takes value edx:eax and puts it using FLAG to EDI
+;;; Takes value edx:eax and puts it's chars using FLAG to EDI
 .parse_num:
 	push esi
 	push ebx
 	push ebp
 	
-	mov esi, edx
-	mov ebx, eax
-	xor ecx, ecx
+	mov esi, edx		; store the hi part(higher 32 bits of 64-bit value)
+	mov ebx, eax		; store the lo part(lower 32 bits of 64-bit value) 
+	xor ecx, ecx		; initialise counter of value string representetion size
 
-.process_hi_part:
+.process_hi_part: 		; take modulus of dividing hi part of value 
 	xor edx, edx
 	mov eax, esi
 	
 	push ecx
-	mov dword ecx, 10
+	mov dword ecx, 10	; and store it in edx
 	div ecx
 	pop ecx
+	mov esi, eax		; store result of devision in ESI
 
-.process_lo_part:
-	mov esi, eax
+.process_lo_part: 		; take result of deividing of lo part with modulus of hi part
 	mov eax, ebx
 	push ecx
 	mov dword ecx, 10
 	div ecx
 	pop ecx
 
-.put_char:
+.put_char:			; put char representing current last figure to stack
 	mov ebx, eax
 
 	add edx, '0'
@@ -287,16 +271,16 @@ hw_sprintf:
 	jne .process_hi_part
 	cmp ebx, 0
 	jne .process_hi_part
-
+;; start processing minimal width
 	mov eax, [flag]
-	and eax, WIDTH_SET
+	and eax, WIDTH_SET 	; check if minimal width is set
 	cmp eax, 0
 	je .put_sign
 
 	mov ebx, [width]
-	
+	;; start to count the size of completion
 	mov eax, SHOW_SIGN
-	or eax, SPACE_BEFORE
+	or eax, SPACE_BEFORE	; decrease if value has number or space
 	and eax, [flag]
 	cmp eax, 0
 
@@ -307,24 +291,24 @@ hw_sprintf:
 	cmp ecx, ebx
 	jge .put_sign
 
-	sub ebx, ecx
-	mov [width], ebx
+	sub ebx, ecx		; subtract size of value
+	mov [width], ebx	; save size of completion
 
 	mov eax, [flag]
-	and eax, LEFT_ALIGN
+	and eax, LEFT_ALIGN	; check if completion is after or before value string
 	cmp eax, 0
 
-	jne .put_sign
+	jne .put_sign		; start putting put value if left alignment
 
 	mov eax, [flag]
-	and eax, ZERO_SYMB_COMPL
+	and eax, ZERO_SYMB_COMPL ;determine symbol to complete with
 	cmp eax, 0
 	jne .put_zero
 	mov dl, ' '
 	jmp .put_compl
 .put_zero:
 	mov dl, '0'
-.put_compl:
+.put_compl:			; put completion string to out buffer
 	cmp ebx, 0
 	jle .put_sign
 	mov [edi], dl
@@ -334,7 +318,7 @@ hw_sprintf:
 
 .save_width:
 	mov dword [width], 0
-.put_sign:
+.put_sign:			; put value sign to out buffer
 	mov eax, [flag]
 	and eax, SHOW_SIGN
 	cmp eax, 0
@@ -350,7 +334,7 @@ hw_sprintf:
 	inc edi
 	jmp .put_out_num
 
-.put_space:
+.put_space:			; put space before value
 	mov eax, [flag]
 	and eax, SPACE_BEFORE
 	cmp eax, 0
@@ -365,7 +349,7 @@ hw_sprintf:
 	mov [edi], al
 	inc edi
 
-.put_out_num:
+.put_out_num:			; put out value by chars from stack
 	cmp ecx, 0
 	je .put_left_align
 	pop edx
@@ -374,7 +358,7 @@ hw_sprintf:
 	dec ecx
 	jmp .put_out_num
 
-.put_left_align:
+.put_left_align:		; put out completion in case of left alignment
 	mov eax, [flag]
 	and eax, WIDTH_SET
 	cmp eax, 0
@@ -386,7 +370,7 @@ hw_sprintf:
 
 	mov ebx, [width]
 	mov dl, ' '
-.put_left_compl:
+.put_left_compl:		; put completion string to out buffer
 	cmp ebx, 0
 	jle .exit_putting_out
 	mov [edi], dl
@@ -394,19 +378,18 @@ hw_sprintf:
 	dec ebx
 	jmp .put_left_compl
 
-.exit_putting_out:
+.exit_putting_out:		; pop from stack saved regs from function putting put value
 	pop ebp
 	pop ebx
 	pop esi
 	jmp .parse_format_char
 	
-.incorrect_comm_seq:
-	mov al, [esi]
+.incorrect_comm_seq:		; handling incorrect command sequence
+	mov al, [esi]		; put first char out and increment pointer
 	inc esi
 	jmp .add_char_to_out
 
-;; take from stack callee-save registers
-.exit:
+.exit:				; take from stack callee-save registers
 	pop ebp
 	pop edi
 	pop esi
