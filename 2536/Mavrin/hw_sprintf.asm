@@ -11,7 +11,7 @@ global hw_sprintf
 %define set_flag(f) or ebx, f
 %define test_flag(f) test ebx, f
 
-%macro longdiv 0
+%macro longdiv 0 ; (c) Vinogradov (i'm sorry)
 ;; divides edx:eax by ebx, stores the quotient in esi:eax and the remainder in edx
 ;; division is based on http://www.df.lth.se/~john_e/gems/gem0033.html
 ;; esi should be equal to edx in the beginning
@@ -153,6 +153,7 @@ hw_sprintf:
   add esi, 2
   jmp .get_type
   
+
 .get_type:
   cmp byte [esi], 'u'
   je .set_unsigned
@@ -161,7 +162,8 @@ hw_sprintf:
   cmp byte [esi], 'i'
   je .parse_arg
   jmp .illegal_format_sequence
-  
+
+; if sequnce is illegal, print percent and go to next symbol
 .illegal_format_sequence:
   pop esi
   jmp .print_percent_sign
@@ -175,12 +177,14 @@ hw_sprintf:
 ;ecx - empty
 ;edx - empty
 .parse_arg:
-  pop edx
-  push esi
-  xor edx, edx
+  ; delete element from stack, because sequnce is legal
+  pop edx ; 
+  xor edx, edx ;
+  push esi save esi until best times
+  ; long long int has another parser
   test_flag(long_long)
   jnz .parse_long_arg
-  mov esi,eax
+  mov esi,eax ; save width into esi
   mov eax, [ebp] ; get argument
   add dword ebp, 4 ; go to next argument
   cmp eax, 0
@@ -201,7 +205,9 @@ hw_sprintf:
   jnz .parse_64_num
   test edx, edx
   jge .parse_64_num
+  ; else number is negative
   set_flag(is_neg)
+  ; special neg for 64-bit
   not eax
   not edx
   add eax, 1
@@ -222,16 +228,14 @@ hw_sprintf:
   jne .parse_num
   jmp .before_print_number
   
-.parse_64_num:
-  push ebx
-  mov ebp, esi
+.parse_64_num: ; MORE REGISTERS FOR GOD OF REGISTERS (it is not working)
+  push ebx ;save flags
   mov ebx, 10
   longdiv
-  pop ebx
+  pop ebx ;get flags
   add edx, 48 ; get code of digit in ASCII
   push edx ; save digit because order is upside-down
-  xchg edx, esi
-  mov esi, ebp
+  xchg edx, esi ; return to format edx:eax
   inc ecx 
   cmp eax, 0 ; do while eax > 0
   jne .parse_64_num
@@ -239,19 +243,19 @@ hw_sprintf:
   
   
 .before_print_number:
-  sub esi, ecx
-  cmp esi, 1
+  sub esi, ecx ; find length for padding
+  cmp esi, 1 ; if padding is require
   jg .print_padding
   jmp .print_sign
   
   
   
-.print_padding:
+.print_padding: ; if we should align right, print padding now(else we'll do it later)
   test_flag(align_left)
   jnz .print_sign
   jmp .print_padding_loop
   
-.print_padding_loop:
+.print_padding_loop: ; print padding symbol until we can
   cmp esi, 1
   je .print_sign
   dec esi
@@ -277,9 +281,10 @@ hw_sprintf:
   jmp .print_plus
   
 .unsigned_case:
+  ; if space required before the number
   test_flag(space)
   jnz .print_one_space
-  cmp esi, 1
+  cmp esi, 1 if we have a space for padding
   je .print_one_padding_symbol
   jmp .print_number
   
@@ -304,7 +309,7 @@ hw_sprintf:
   jmp .print_number
   
 .print_plus:
-  test_flag(plus)
+  test_flag(plus) ; if printig '+' is required
   jz .print_one_padding_symbol
   mov [edi], byte '+'
   inc edi
@@ -322,18 +327,18 @@ hw_sprintf:
   jmp .print_number
 
 .continue:
-  test_flag(align_left)
+  test_flag(align_left) if number was aligned left, we need a padding after it
   jnz .print_right_padding
   jmp .go_to_next
   
 .print_right_padding:
-  cmp esi, 1
+  cmp esi, 1 ;while we have a space for padding
   je .go_to_next
   dec esi
   jmp .print_right_space
   
 .go_to_next:
-  pop esi
+  pop esi ; get saved esi
   inc esi ; go to next byte of input string
   jmp .get_next
 
