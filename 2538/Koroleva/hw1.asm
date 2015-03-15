@@ -38,7 +38,7 @@ write_unsigned:
 	mov byte[edi], dl
 	cmp eax, 0
 	jne .loop
-	jmp .flag_plus
+	jmp .write
 
 .long
 	mov eax, [esi]	    ;младшие биты чиселка
@@ -54,40 +54,21 @@ write_unsigned:
 	mov esi, eax
 	pop eax
 	div ecx	
+
+
+	cmp edx, 0
+	je .continue
+
 	add edx, '0'
 	dec edi
 	mov byte[edi], dl
-	mov edx, esi
-	
+.continue
+	mov edx, esi	
 	cmp edx, 0
 	jne .long_loop
 	pop esi
 	jmp .loop
 	
-.flag_plus
-	test ebx, FLAG_PLUS
-	jz .flag_space
-	test ebx, FLAG_SIGN
-	jnz .set_minus
-	mov cl, '+'
-	dec edi
-	mov byte[edi], cl
-	jmp .write
-
-.set_minus
-	mov cl, '-'
-	dec edi
-	mov byte[edi], cl
-
-	jmp .write
-
-.flag_space
-	test ebx, FLAG_SPACE
-	jz .write
-	mov cl, ' '
-	dec edi
-	mov byte[edi], cl
-
 .write
 	mov eax, edi
 	pop edi
@@ -97,23 +78,28 @@ write_unsigned:
 	sub edx, eax
 
 	cmp ecx, edx
-	jle .write_loop
+	jle .flag_sign
 
 	sub ecx, edx
+	
+	test ebx, FLAG_PLUS
+	jnz .less_width
+	test ebx, FLAG_SIGN
+	jnz .less_width
+	test ebx, FLAG_SPACE
+	jnz .less_width
+        jmp .flag_minus
+	
+.less_width
+	dec ecx
+
+.flag_minus
 	test ebx, FLAG_MINUS
-	jnz .write_loop
+	jnz .flag_sign
 
 	test ebx, FLAG_ZERO
-	jz .prev_loop
+	jnz .flag_sign
 
-.prev_loop_zero
-	mov dl, '0'
-	mov byte[edi], dl
-	inc edi
-	dec ecx
-	cmp ecx, 0
-	jne .prev_loop_zero
-	jmp .write_loop
 
 .prev_loop
 	mov dl, ' '
@@ -121,8 +107,45 @@ write_unsigned:
 	inc edi
 	dec ecx
 	cmp ecx, 0
-	jne .prev_loop
+	jg .prev_loop
 
+.flag_sign
+	test ebx, FLAG_SIGN
+	jz .flag_plus
+	mov dl, '-'
+	mov byte[edi], dl
+	inc edi
+	jmp .flag_zero
+
+.flag_plus
+	test ebx, FLAG_PLUS
+	jz .flag_space
+	mov dl, '+'
+	mov byte[edi], dl
+	inc edi
+	jmp .flag_zero
+.flag_space
+	test ebx, FLAG_SPACE
+	jz .flag_zero
+	mov dl, ' '
+	mov byte[edi], dl
+	inc edi
+
+.flag_zero 
+	test ebx, FLAG_MINUS
+	jnz .write_loop
+	test ebx, FLAG_ZERO
+	jz .write_loop
+
+.prev_loop_zero
+	mov dl, '0'
+	mov byte[edi], dl
+	inc edi
+	dec ecx
+	cmp ecx, 0
+	jg .prev_loop_zero
+	jmp .write_loop
+	
 .write_loop
 	mov dl, byte[eax]
 	mov byte[edi], dl
@@ -139,7 +162,7 @@ write_unsigned:
 	inc edi
 	dec ecx
 	cmp ecx, 0
-	jne .minus_loop
+	jg .minus_loop
 
 .ret
 	mov eax, esi
