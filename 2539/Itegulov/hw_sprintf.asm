@@ -232,15 +232,15 @@ hw_sprintf:
     or ebx, FLAG_PLUS
     jmp .format_loop
 
-.format_minus
+.format_minus:
     or ebx, FLAG_MINUS
     jmp .format_loop
 
-.format_space
+.format_space:
     or ebx, FLAG_SPACE
     jmp .format_loop
 
-.format_zero
+.format_zero:
     or ebx, FLAG_ZERO
     jmp .format_loop
 
