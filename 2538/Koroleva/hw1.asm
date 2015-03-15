@@ -1,22 +1,25 @@
-%define FLAG_PLUS 1
-%define FLAG_SPACE 2
-%define FLAG_MINUS 4
-%define FLAG_ZERO 8
-%define FLAG_LONG_LONG 16
-%define FLAG_SIGN 32
+%define FLAG_PLUS 1		;флажок "+"
+%define FLAG_SPACE 2		;флажок " "
+%define FLAG_MINUS 4		;флажок "-"
+%define FLAG_ZERO 8		;флажок "0"
+%define FLAG_LONG_LONG 16	;поставить 1, если long long, и 0 в противном случае
+%define FLAG_SIGN 32		;поставить 1, если число отрицательное и, 0 в противном случае
 
 
 section .text
 global hw_sprintf
 
+
+;void* write_unsigned(void* args, int width, int flags)
+;Функция получает на вход указатель на текущий аргумент, ширину и флаги.
+;Возвращает указатель на следующий аргумент.
 write_unsigned:
 	push ebp
 	mov ebp, esp
 
-	mov ecx, edi
-
-	mov edi, ebp  ;указатель на начало чиселка
-	sub esp, 24   ;выделяем для чиселка память на стеке. 24 байта 
+	mov ecx, edi  ;сохраним указатель на строку, в которую выводим 
+	mov edi, ebp  ;здесь будем хранить указатель на конец числа в смсысле строки
+	sub esp, 24   ;выделяем для строки числа память на стеке, 24 байта 
 	push esi
 	push ecx
 
@@ -24,15 +27,15 @@ write_unsigned:
 	mov esi, [ebp + 8] ;указатель на начало аргументов
 	mov ecx, 10   ;база системы счисления
 
-	test ebx, FLAG_LONG_LONG
+	test ebx, FLAG_LONG_LONG ;длинные и не очень числа обрабатываем по-разному 
 	jnz .long
 
-	mov eax, [esi]
+	mov eax, [esi]		;если короткое, то достаточно eax
 	add esi, 4
 
-.loop
-	mov edx, 0
-	div ecx
+.loop				;делим на 10, остаток в виде символа 	
+	mov edx, 0		;	записываем на стек, двинаем указатель на конец - edi 
+	div ecx			
 	add edx, '0'
 	dec edi
 	mov byte[edi], dl
@@ -41,48 +44,49 @@ write_unsigned:
 	jmp .write
 
 .long
-	mov eax, [esi]	    ;младшие биты чиселка
+	mov eax, [esi]		;младшие биты числа
 	add esi, 4          
-	mov edx, [esi]      ;старшие биты чиселка
-	push esi
+	mov edx, [esi]		;старшие биты числа
+	add esi, 4
+	push esi		;будем портить, поэтому нужно запомнить 
 
 .long_loop
+	cmp edx, 0		;если число в какой-то момент превратилось в короткое, то продолжим его считать как короткое
+	jne .continue
+	pop esi			
+	jmp .loop
+	
+.continue
 	push eax           
-	mov eax, edx
+	mov eax, edx		;сначала поделим старший разряд
 	mov edx, 0
 	div ecx
-	mov esi, eax
-	pop eax
+	mov esi, eax		;запомним результат, а остаток оставим в edx
+	pop eax			;поделим младший разряд с остатком от предыдущего деления в edx
 	div ecx	
-
-
-	cmp edx, 0
-	je .continue
-
+				;теперь результат в eax, а остаток в edx. Осталось перевести его в символ, 
+				;	записать, а в edx вернуть результат от первого деления
 	add edx, '0'
 	dec edi
 	mov byte[edi], dl
-.continue
-	mov edx, esi	
-	cmp edx, 0
-	jne .long_loop
-	pop esi
-	jmp .loop
+	mov edx, esi
+	jmp .long_loop		
 	
-.write
-	mov eax, edi
-	pop edi
+.write				;теперь нужно записать строчку, получившуюся на стеке, учитывая формат
+	mov eax, edi		;указатель на конец числа(в смысле строки) теперь в eax
+	pop edi			;edi снова указывает на текущий символ строки out 
 
-	mov ecx, [ebp + 12]
+	mov ecx, [ebp + 12]	;в ecx поместим ширину 
 	mov edx, ebp
-	sub edx, eax
+	sub edx, eax		;а в edx - длину строки, описывающей число 
 
-	cmp ecx, edx
+	cmp ecx, edx		;если ширина не больше текущей длины, то опустим всякие 
+				;	дополнения до ширины и сразу пойдем писать число 
 	jle .flag_sign
 
-	sub ecx, edx
+	sub ecx, edx		;а если нет, то теперь в ecx - количество символов, которые нужно дописать 
 	
-	test ebx, FLAG_PLUS
+	test ebx, FLAG_PLUS	;если нужно обязательно вывести знак числа или пробел перед ним, то ecx уменьшается на 1 
 	jnz .less_width
 	test ebx, FLAG_SIGN
 	jnz .less_width
@@ -93,7 +97,7 @@ write_unsigned:
 .less_width
 	dec ecx
 
-.flag_minus
+.flag_minus			;если есть флаг "-" или "0", то не нужно выводить дополнительные пробелы перед числом 
 	test ebx, FLAG_MINUS
 	jnz .flag_sign
 
@@ -101,7 +105,7 @@ write_unsigned:
 	jnz .flag_sign
 
 
-.prev_loop
+.prev_loop			;а иначе - давайте их выведем 
 	mov dl, ' '
 	mov byte[edi], dl
 	inc edi
@@ -109,7 +113,7 @@ write_unsigned:
 	cmp ecx, 0
 	jg .prev_loop
 
-.flag_sign
+.flag_sign			;следующие три метки записывают знак числа или пробел, если они нужны 
 	test ebx, FLAG_SIGN
 	jz .flag_plus
 	mov dl, '-'
@@ -131,7 +135,7 @@ write_unsigned:
 	mov byte[edi], dl
 	inc edi
 
-.flag_zero 
+.flag_zero 			;если есть флаг "-", то мы игнорируем флаг "0", иначе дополняем нулями(prev_loop_zero)
 	test ebx, FLAG_MINUS
 	jnz .write_loop
 	test ebx, FLAG_ZERO
@@ -146,7 +150,7 @@ write_unsigned:
 	jg .prev_loop_zero
 	jmp .write_loop
 	
-.write_loop
+.write_loop			;теперь, наконец-то, запишем в out наше число!
 	mov dl, byte[eax]
 	mov byte[edi], dl
 	inc edi
@@ -154,7 +158,7 @@ write_unsigned:
 	cmp eax, ebp
 	jne .write_loop
 
-	test ebx, FLAG_MINUS
+	test ebx, FLAG_MINUS	;если был флаг "-", то нужно дополнить его до ширины пробелами(minus_loop) 
 	jz .ret
 .minus_loop
 	mov dl, ' '
@@ -165,28 +169,32 @@ write_unsigned:
 	jg .minus_loop
 
 .ret
-	mov eax, esi
+	mov eax, esi		;возвращаемое значение сохраняется в eax 
 	pop esi 
 
 	mov esp, ebp
 	pop ebp
 	ret
 
+
+;void* write_signed(void* args, int width, int flags)
+;Функция принимает указатель на аргументы, ширину и флаги
+;Исходя из флагов переписывает текущий аргумент в строку out и возвращает указатель на следующий аргумент
 write_signed:
 	push ebp
 	mov ebp, esp
 
-	mov ebx, [ebp + 16]
-	mov ecx, [ebp + 8]
+	mov ebx, [ebp + 16]		;здесь будут жить флажки
+	mov ecx, [ebp + 8]		;а здесь указатель на аргументы
 
-	test ebx, FLAG_LONG_LONG
+	test ebx, FLAG_LONG_LONG	;если чиселко не длинное, то мы его предварительно обработаем 
 	jnz .long
 
 	mov eax, [ecx]
 	bt eax, 31
 	jnc .calling
-	mov edx, ~0
-	jmp .set_minus
+	mov edx, ~0			;а именно - если оно отрицательное - забьем в edx кучу единиц
+	jmp .set_minus			;	и представим, что оно длинное
 
 .long
 	mov eax, [ecx]
@@ -197,18 +205,18 @@ write_signed:
 	jnc .calling
 
 .set_minus
-	not edx
+	not edx				;берем модуль числа
 	not eax
 	add eax, 1
 	adc edx, 0
-	or ebx, FLAG_SIGN
+	or ebx, FLAG_SIGN		;говорим, что у нас отрицательный знак
 
-	mov [ecx], eax
+	mov [ecx], eax			;подставлям получившееся положительное число вместо аргумента, который был
 	test ebx, FLAG_LONG_LONG
 	jz .calling
 
 	add ecx, 4
-	mov [ecx], edx
+	mov [ecx], edx	
 	sub ecx, 4
 
 .calling
@@ -216,7 +224,7 @@ write_signed:
 	push ebx
 	push edx
 	push ecx
-	call write_unsigned
+	call write_unsigned		;и сделав вид, что оно беззнаковое, вызовем эту функцию 
 	pop ecx
 	pop edx
 	pop ebx
@@ -225,26 +233,27 @@ write_signed:
 	ret
 
 ;int string_to_int();
-;read string at esi from current symbol, while there are digits 
-;and convert to int
-;result is writing to eax
+;Читает символы являющиеся цифрами с текущего места строчки формата(esi) 
+;и переводит их в int
+;Результат записан в eax
+
 string_to_int:
 	push ebp
 	mov ebp, esp
-	mov eax, 0
+	mov eax, 0	;инициализация
 
 .loop
-	cmp cl, '0'
+	cmp cl, '0'	;если символ не цифра - возвращаемся
 	jl .ret
 	cmp cl, '9'
 	jg .ret
 
-	mov ebx, 10
+	mov ebx, 10	;перевод строки в число
 	mul ebx
 	sub cl, '0'
-	add al, cl
+	add al, cl	
 
-	mov cl, byte[esi]
+	mov cl, byte[esi]	;двигаем текущий элемент
 	inc esi
 
 	jmp .loop
@@ -253,7 +262,8 @@ string_to_int:
 	pop ebp
 	ret	
 
-;write symbols from eax to esi
+;void write_to_out()
+;эта функция выводит все символы от указателя eax, до esi
 write_to_out:
 	push ebp
 	mov ebp, esp
@@ -263,40 +273,53 @@ write_to_out:
 	inc eax
 	inc edi
 
-	cmp eax, esi
+	cmp eax, esi		;если еще не дошли до конца - продолжим
 	jne .loop
 
 	pop ebp
 	ret
 
+; void hw_sprintf(char* out, char* format, ...)
+;out - строчка, в которую нужно записать
+;format - строчка формата
+;остальное - аргументы, подставляемые в формат
+
 hw_sprintf:
 	push ebp
 	mov ebp, esp
 
-	mov edi, [ebp + 8]
-	mov esi, [ebp + 12]
-	lea edx, [ebp + 16]
-	mov eax, esi
+	push esi
+	push edi
+	push ebx
+
+	mov edi, [ebp + 8]	;указатель на текущее место, куда мы пишем в строке out
+	mov esi, [ebp + 12]	;указатель на текущий символ формата
+	lea edx, [ebp + 16]	;указатель на текущий аргумент
+	mov eax, esi		;будет указывать на то место в строке формата, откуда мы начали разбирать выражение после %,
+	        		;	если формат не корректный, то с этого места до текущего мы просто выведем все 
 
 .loop
-	mov ebx, 0
-	mov cl, byte[esi]
+	mov ebx, 0		;регистр ebx будет использоваться для флажков
+	mov cl, byte[esi]	;в регистр ecx будут записываться какие-то текущие 
+				;вычисления или значения, которые надо где-то хранить 
 
-	cmp cl, 0
+	cmp cl, 0		;проверка на символ конца строки
 	je .ret
-	inc esi
+	inc esi			
 	
-	push eax
+	push eax		;eax в дальнейшем используется для вычисления ширины, 
+				;поэтому нужно сохранить его значение
 
-	cmp cl, '%'
+	cmp cl, '%'		;проверка, не началось ли описание вывода какого-то аргумента
 	jne .no_format
 
 .format
 	mov cl, byte[esi]
 	inc esi
 
-	cmp cl, '+'
-	jne .space
+	cmp cl, '+'		;проверки на флаги. Если повстречался флаг,	
+	jne .space		;	снова идем в начало цикла определения флагов
+
 	or ebx, FLAG_PLUS
 	jmp .format
 
@@ -319,14 +342,14 @@ hw_sprintf:
 	jmp .format
 
 .width
-	push ebx
+	push ebx		;эти регистры портятся при вызове вычисления ширины, поэтому надо их сохранить
 	push edx
-	call string_to_int
+	call string_to_int	;функция вычисления ширины
 	pop edx
 	pop ebx
 
-.size
-	cmp cl, 'l'
+.size				;проверка размера
+	cmp cl, 'l'		
 	jne .type
 
 	mov cl, byte[esi]
@@ -338,8 +361,8 @@ hw_sprintf:
 	mov cl, byte[esi]
 	inc esi
 
-.type
-	cmp cl, 'i'
+.type				;проверка типа
+	cmp cl, 'i'	
 	je .signed
 
 	cmp cl, 'd'
@@ -353,52 +376,55 @@ hw_sprintf:
 	jmp .no_format	
 	
 .signed
-	push ebx
+	push ebx		;передаем аргументы в функцию
 	push eax
 	push edx
 	call write_signed
 	pop edx
-	mov edx, eax
+	mov edx, eax		;присваиваем возвращаемое значение куда надо
 	pop eax
 	pop ebx
 
-	pop eax
-	mov eax, esi
+	pop eax			;восстанавливаем указатель на строку формата
+	mov eax, esi		;передвигаем его на нужное место
 
 	jmp .loop
 
 .unsigned
-	push ebx
+	push ebx		;передаем аргументы в функцию
 	push eax
 	push edx
 	call write_unsigned	
 	pop edx
-	mov edx, eax
+	mov edx, eax		;присваиваем возвращаемое значение куда надо
 	pop eax
 	pop ebx
 	
 
-	pop eax ; pointer to string
-	mov eax, esi
+	pop eax 		;восстанавливаем указатель на строку формата
+	mov eax, esi		;передвигаем его на нужное место
 	jmp .loop
 
 .percent
-	;it works!
-	mov byte[edi], cl
+	mov byte[edi], cl	;поскольку мы попали сюда, значит в cl был %. Так выведем же его!
 	inc edi
 	pop eax
-	mov eax, esi
+	mov eax, esi		;передвигаем указатель на текущее место
 
 	jmp .loop	
 
 .no_format
-	pop eax
+	pop eax			
 	call write_to_out
 	jmp .loop
 	
 .ret
-	mov byte[edi], cl
+	mov byte[edi], cl	;записываем символ конца строки
 	inc edi
+
+	pop ebx
+	pop edi
+	pop esi
 	pop ebp
 	ret
 

@@ -23,6 +23,7 @@ hw_sprintf:
     mov ebp, esp
     push esi
     push edi
+    push ebx
 
     mov edi, [ebp + 8] ; store ptr to out out_number
     mov esi, [ebp + 12] ; store format ptr
@@ -43,6 +44,7 @@ next_char:
     jne next_char
 
 .return:
+    pop ebx
     pop edi
     pop esi
     mov esp, ebp
@@ -328,6 +330,7 @@ write_sign_symbol:
         jz %%end
         mov byte [edi], %2
         inc edi
+        jmp .write_sign_end
         %%end:
     %endmacro
 
@@ -335,6 +338,7 @@ write_sign_symbol:
     macro_write_symbol SHOW_SIGN_FLAG, '+'
     macro_write_symbol SPACE_FLAG, ' '
 
+.write_sign_end:
     ret
 
 ; function convert unsigned number to string represent

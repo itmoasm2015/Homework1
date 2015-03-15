@@ -1,14 +1,16 @@
-CFLAGS=-m32 -g
-CXXFLAGS=-m32 -g -O2 -std=c++11
+all: run libhw.a
+
+run: test
+	./test
+
+test: hw_sprintf.o test.cpp
+	g++ -m32 -g -O3 -std=c++11 -o test test.cpp hw_sprintf.o
+
+%.o: %.asm
+	yasm -f elf32 -g dwarf2 -o $@ $^
 
 libhw.a: asm
 	ar rcs libhw.a hw_sprintf.o
 
-test: test.o
-	g++ -m32 -g -O2  -o test test.o hw_sprintf.o
-
-test.o: test.cpp asm
-	g++ -m32 -g -O2 -std=c++11 -o test.o -c test.cpp
-
-asm: hw_sprintf.asm
-	yasm -f elf32 -g dwarf2 -o $@ $^
+clean:
+	rm -f *.o *.a

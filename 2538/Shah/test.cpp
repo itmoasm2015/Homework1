@@ -19,6 +19,8 @@ void check()
 
 int main()
 {
+    hw_sprintf(out, "%+-+-    -+d %         +8ii", 123, -4324);
+    check();
     hw_sprintf(out, "%%%%%%%");
     check();
     hw_sprintf(out, "%d=%u", -1, -1);
