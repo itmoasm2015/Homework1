@@ -1,5 +1,5 @@
-ASM_FLAGS = -fwin32 
-CXX_FLAGS = -m32 -std=c99 -L. -Wno-format-extra-args -Wformat=0
+ASM_FLAGS = -felf32 -gdwarf2
+CXX_FLAGS = -m32 -std=c99 -g -L. -Wno-format-extra-args -Wformat=0
 
 all: test
 
@@ -9,7 +9,7 @@ clean:
 	rm -f test
 
 test: libhw.a
-	gcc -o test.exe $(CXX_FLAGS) test.c -lhw
+	gcc -o test $(CXX_FLAGS) test.c -lhw
 
 libhw.a: hw.o
 	ar rcs libhw.a hw.o
