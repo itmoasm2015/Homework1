@@ -90,6 +90,10 @@ int main(int argc, char *argv[]) {
     sprintf(buffer, "%2d %03d", -1, -1);
     test(hw_buffer, buffer, verbose);
 
+    hw_sprintf(hw_buffer, "%2i %03i", -1, -1);
+    sprintf(buffer, "%2i %03i", -1, -1);
+    test(hw_buffer, buffer, verbose);
+
     hw_sprintf(hw_buffer, "%2d % 04d", -1, -1);
     sprintf(buffer, "%2d % 04d", -1, -1);
     test(hw_buffer, buffer, verbose);
@@ -136,6 +140,18 @@ int main(int argc, char *argv[]) {
 
     hw_sprintf(hw_buffer, "%10lld %-10llu", (long long)0, (long long)111);
     sprintf(buffer, "%10lld %-10llu", (long long)0, (long long)111);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%10lli %-10lli", (long long)0, (long long)111);
+    sprintf(buffer, "%10lli %-10lli", (long long)0, (long long)111);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%-%%d", 123);
+    sprintf(buffer, "%-%%d", 123);
+    test(hw_buffer, buffer, verbose);
+
+    hw_sprintf(hw_buffer, "%-00-%%d % -010% %-0 10lli", 123, (long long)321);
+    sprintf(buffer, "%-00-%%d % -010% %-0 10lli", 123, (long long)321);
     test(hw_buffer, buffer, verbose);
 
 	return 0;

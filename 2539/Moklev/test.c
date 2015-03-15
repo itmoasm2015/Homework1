@@ -143,8 +143,11 @@ int main() {
         TEST(a, b, "%i> %-30u % -+30i %-30llu % -+30lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
         TEST(a, b, "%i> %030u %+030i %030llu %+030lld", i, uidata[i], idata[i], ulldata[i], lldata[i]);
     }
-    
+          
     printf("%d / %d tests passed\n", a, b);
+
+    //return 0;    
+        
     time1 = clock();
         
     printf("time to wait\n");

@@ -56,16 +56,16 @@ section .text
         test edi, 0x80000000
         jnz .from2compl_int
         jmp .add_plus              ; checks flags & adds plus if has to
-    ; depends on FLAG_ZEROS flag we should write sign as the first symbol of string
+    ; depends on FLAG_ZEROS flag we should write sign as the first symbol of out string
     ; or as the symbol before the first significant figure (i.e. last push in stack)
-    .from2compl_long:
+    .from2compl_long:              ; get from memory, convert to unsigned and write back
         mov edi, [esp]
         push ebx
         mov edi, [edi]             ; lowest 32 bits
         not edi
         inc edi
         jnc .no_carry
-        or eax, CARRY
+        or eax, CARRY              ; should we increment highest part?
     .no_carry:
         mov ebx, [esp + 4]
         mov [ebx], edi
@@ -82,13 +82,13 @@ section .text
     .from2compl_int:
         not edi
         inc edi
-    .add_minus:
-        test eax, FLAG_ZEROS
+    .add_minus:                     ; here and futher set flag if we're going to
+        test eax, FLAG_ZEROS        ; push symbol in stack after all digits will be pushed
         jz .add_minus_flag
         mov byte [ebx], '-'
         inc ebx
-        or eax, DEC_COUNT
-        jmp .to_decimal_str
+        or eax, DEC_COUNT           ; here and futher set flag if we've written
+        jmp .to_decimal_str         ; symbol directly to out, need it when evaluate out length
     .add_minus_flag:
         or eax, MINUS
         jmp .to_decimal_str
@@ -111,10 +111,9 @@ section .text
         jz .to_decimal_str
         or eax, SPACE
         jmp .to_decimal_str
-    ; write decimal string to stack
-    .to_decimal_str:
+    .to_decimal_str:                  ; write decimal string to stack
         mov [ecx], eax
-        mov edx, eax    ; temporary place for flags
+        mov edx, eax                  ; temporary place for flags
         mov eax, edi
         mov edi, 10
         test edx, FLAG_LONG
@@ -142,23 +141,21 @@ section .text
         dec esp
         jmp .done_placing
     .done_placing:
-        mov edx, ecx      ; let's find out should we add spaces or zeros
+        mov edx, ecx                   ; let's find out should we add spaces or zeros
         sub edx, esp
         cmp edx, esi
         ja .write
-        ; let's try to add some spaces or zeros
-        or eax, FILL
+        or eax, FILL                   ; let's try to add some spaces or zeros
         sub esi, edx
         inc esi
-        ; one symbol may be written to out
-        test eax, DEC_COUNT
+        test eax, DEC_COUNT            ; one symbol may be written to out before
         jnz .dec_esi
         jmp .continue
     .dec_esi:
         dec esi
         jz .write
     .continue:
-        test eax, FLAG_ALIGN_LEFT
+        test eax, FLAG_ALIGN_LEFT      ; add spaces later if flag is set
         jnz .write
         mov edx, ' '
         test eax, FLAG_ZEROS
@@ -167,9 +164,8 @@ section .text
         mov eax, [ecx]
     .call_fill:
         call fill_symb
-    ; read characters in reverse order from stack & write to output
     .write:
-        inc esp
+        inc esp                        ; read characters in reverse order from stack & write to output
         mov dl, byte [esp]
         .loop1:
             mov byte [ebx], dl
@@ -178,15 +174,14 @@ section .text
             mov dl, byte [esp]
             cmp esp, ecx
             jne .loop1
-        add esp, 4      ; erase flags in stack
+        add esp, 4                     ; erase flags in stack
 
         test eax, FLAG_ALIGN_LEFT
         jz .done_itoa
         test eax, FILL
         jz .done_itoa
-        ; btw, esi still contains desirable number
         mov edx, ' '
-        call fill_symb
+        call fill_symb                 ; btw, esi still contains desirable number
 
     .done_itoa:
         pop ecx
@@ -293,7 +288,13 @@ section .text
         inc ecx
         jmp .process_next
 
-    .process_format:
+    .percent:
+        xor eax, eax
+        xor esi, esi
+        or eax, FLAG_CTRL_SEQ
+        push ecx                  ; start of format sequence is now in stack
+        inc ecx
+    .process_format:              ; process symbols assuming it's part of formatting sequence
         mov dl, byte [ecx]
         cmp edx, '+'
         je .plus
@@ -303,13 +304,17 @@ section .text
         je .space
         cmp edx, '0'
         je .zero
-        or eax, FLAGS_ENDED
-        cmp edx, 'u'
+        or eax, FLAGS_ENDED       ; flags always come first
+        cmp edx, 'u'              ; assume sequence is incorrect if any flag occures again
         je .print_unsigned
         cmp edx, 'l'
         je .print_long
         cmp edx, 'd'
         je .print_int
+        cmp edx, 'i'
+        je .print_int
+        cmp edx, '%'
+        je .percent_modifier
     .digit:
         cmp edx, '9'             ; <= '9'
         ja .incorrect_sequence
@@ -321,21 +326,19 @@ section .text
         or eax, FLAG_UNSIGNED
         jmp .print_int
     .print_long:
-        ; make sure there's second 'l'
         inc ecx
         mov dl, byte [ecx]
-        cmp edx, 'l'
+        cmp edx, 'l'             ; make sure there's second 'l'
         jne .incorrect_sequence
         or eax, FLAG_LONG
         inc ecx
         jmp .process_format
     .print_int:
-        add esp, 4           ; erase address of format sequence start, no need anymore
+        add esp, 4               ; erase address of format sequence start, no need anymore
         push edi
         test eax, FLAG_LONG
         jnz .send_address
-      .send_value:
-        mov edi, [edi]
+        mov edi, [edi]           ; send value
       .send_address:
         call itoa
         pop edi
@@ -347,6 +350,13 @@ section .text
         xor eax, eax
         inc ecx
         jmp .process_next
+    .percent_modifier:
+        mov byte [ebx], '%'
+        inc ebx
+        inc ecx
+        add esp, 4               ; erase address of format sequence start, no need anymore
+        xor eax, eax
+        jmp .process_next
     .number_width:
         sub edx, '0'
         imul esi, 10
@@ -354,7 +364,7 @@ section .text
         inc ecx
         jmp .process_format
     .plus:
-        test eax, FLAGS_ENDED
+        test eax, FLAGS_ENDED     ; here and futher check if sequence is correct
         jnz .incorrect_sequence
         or eax, FLAG_PLUS
         inc ecx
@@ -377,28 +387,11 @@ section .text
         or eax, FLAG_ZEROS
         inc ecx
         jmp .process_format
-    .percent:
-        test eax, FLAG_CTRL_SEQ
-        jnz .incorrect_sequence   ; '%' in formatting sequence
-        xor eax, eax
-        xor esi, esi
-        or eax, FLAG_CTRL_SEQ
-        push ecx                  ; start of format sequence is now in stack
-        inc ecx
-        mov dl, byte [ecx]
-        cmp edx, '%'              ; .incorrect_sequence prints two '%', so prevent it
-        jne .process_format
-        add esp, 4                ; erase start of sequence
-        mov [ebx], edx
-        inc ebx
-        inc ecx
-        xor eax, eax
-        jmp .process_next
 
     .incorrect_sequence:
         xor eax, eax
         pop esi                   ; start of incorrect sequence
-        .loop2:
+        .loop2:                   ; let's print whole sequence as raw string
             mov dl, byte [esi]
             mov [ebx], dl
             inc ebx
