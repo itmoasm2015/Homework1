@@ -1,3 +1,12 @@
+;; 15.03.2015 CTD Assembler course Homework 1 solution
+;; Author: Dmitry Mukhutdinov, 2539
+;;
+;; General notes:
+;; All the functions what have C-style signature in their comment
+;; block are meant to be CDECL-compatible.
+;; For a non-CDECL function: if not explicitly said, then function
+;; doesn't guarantee to save any register except ESP and EBP - they are always saved
+
 %macro CDECL_ENTER 2
               push  ebx
               push  esi
@@ -55,7 +64,7 @@
 global hw_sprintf, hw_ntoa
 
 section .bss
-BYTE_STACK:   resb  1024
+BYTE_STACK:   resb  24              ; Temp buffer to store undigned number representation (guaranteed to fit for any long long)
 
 section .data
 CONST_10:     dd    10
@@ -78,6 +87,7 @@ hw_sprintf:
 	      lea   edx, [esp+28]   ; Store next argument address in EDX
 	      xor   eax, eax        ; Reset EAX - though we use only AL to store current symbol,
 				    ; we'll need full EAX to count LEA at line 127
+              cld                   ; Clear direction flag
 .main_loop:
               mov   al, [esi]
 	      JIFE  al, 0, .finish  ; Test for null-character (end of string)
@@ -227,7 +237,8 @@ hw_ntoa:
               mov   edi, [ebp+24]   ; output address
               mov   ebx, [ebp+28]   ; flags
                                     ; We will fetch minlength later
-
+              cld                   ; Clear direction flag (hw_ntoa is public, so it can be used outside of hw_sprintf)
+              
               mov   eax, [edx]      ; Get low half of number
 
               ;; Here code is branching to int preprocessing
@@ -329,8 +340,10 @@ hw_ntoa:
 ;; Returns:
 ;; esi -- output string address
 ;; ecx -- output string length
+;; 
+;; Saves: ebx, edi
 __hw_ultoa:
-              lea   esi, [BYTE_STACK+1023]
+              lea   esi, [BYTE_STACK+24]
               xor   ecx, ecx        ; Initial string length
 
               call  .recur          ; Recursive sub-function puts chars on stack
