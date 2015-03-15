@@ -161,9 +161,24 @@ hw_sprintf:
 	adc edx, 0		; and add CF is eax was 0xFFFFFFFF
 
 .prepare_output_done:
-	testf(FLAG_ZERO)	; if has zero pad
-	jz .calc_padding
-	call output_first_char
+	; testf(FLAG_ZERO)	; if has zero pad
+	; jz .calc_padding
+	; call output_first_char
+
+.write_number:
+	push edi
+	mov edi, buf
+	call int_to_str
+	pop edi
+	mov ecx, eax
+	push esi
+	mov esi, buf
+.write_char:
+	movsb
+	loop .write_char
+.write_number_done:
+	pop esi
+	jmp .return
 
 .calc_padding:
 	push edi
@@ -171,8 +186,14 @@ hw_sprintf:
 	call int_to_str
 	pop edi
 	testf(FLAG_PLUS | FLAG_SPACE | FLAG_IS_NEGATIVE)
-	
-	cmp eax, [esp + 4]	; Compare number length and 
+	jz .check_padding_need
+
+.check_padding_need:
+	cmp eax, [esp]			; Compare number length and 'format width'
+	jge .pad_left_done
+
+
+.pad_left_done:
 	
 
 ;;; format flags
@@ -197,6 +218,8 @@ hw_sprintf:
 					; subroutine epilogue
 
 .return:
+	add esp, 8
+	mov byte [edi], 0
 					; restore callee-saved registers
 	pop esi
 	pop edi
@@ -211,7 +234,7 @@ int_to_str:
 	push ecx
 	push edi
 
-	push byte 0		; Chars counter
+	push 0			; Chars counter
 	mov ecx, 10		; Divisor
 .div_loop:
 	push eax		; Divide high 32bit of EDX:EAX by 10
@@ -225,7 +248,7 @@ int_to_str:
 	div ecx
 	xchg ebx, edx		; EDX:EAX is divided by ten, remainder in EBX
 
-	inc byte [esp + 1]	; Increment chars counter
+	add dword [esp], 1	; Increment chars counter
 	add bl, '0'		; Turn remainder into char
 	mov [edi], bl		; Put char to output
 	inc edi
@@ -233,32 +256,34 @@ int_to_str:
 	cmp eax, 0		; If EDX:EAX != 0, continue division
 	jne .div_loop
 
-	mov ecx, byte [esp + 1]	; ECX contains number of chars
+	pop ecx			; ECX contains length of number
 	cmp ecx, 1		; Do not reverse since there is only one character
 	jle .return
-	
+	push ecx
 .reverse:
+	mov ebx, edi
+	sub ebx, ecx		; EBX points to first char
 	dec edi			; EDI points to last char
-		
-.reverse_loop:			; Perform swap of first and last chars in output
-	lea ebx, [edi - ecx + 1]; EBX contains address of first char to swap
-	                        ; EDI contains address of last char to swap
-	mov dl, byte [ebx]	; DL stores first char to swap
-	mov al, byte [edi]	; AL stores last char to swap
+.reverse_loop:
+	mov al, byte [ebx]	; DL stores first char to swap
+	mov dl, byte [edi]	; AL stores last char to swap
 	;; Perform XOR swap algorithm
 	xor al, dl
 	xor dl, al
 	xor al, dl
 	;; AL and DL are swapped now
-	mov byte [edi], dl	; Put values back
 	mov byte [ebx], al
+	mov byte [edi], dl	; Put values back
 
 	sub ecx, 2
 	cmp ecx, 1		; If there is one (or zero) chars to swap left, we're done here.
 	jle .return
+	inc ebx			; Move ptr to first char
+	dec edi			; Move ptr to last char
+	jmp .reverse_loop
 	
 .return:
-	pop eax			; Number of chars in string representation
+	pop eax 		; Number of chars in string representation
 	pop edi			; Restore the rest of registers
 	pop ecx
 	pop edx
@@ -281,15 +306,15 @@ output_first_char:
 .put_minus:
 	mov byte [edi], '-'
 	inc edi
-	jmp .return
+	jmp .ret
 .put_plus:
 	mov byte [edi], '+'
 	inc edi
-	jmp .return
+	jmp .ret
 .put_space:
-	move byte [edi], ' '
+	mov byte [edi], ' '
 	inc edi
-.return:
+.ret:
 	ret
 	
 	
