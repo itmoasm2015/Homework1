@@ -426,14 +426,17 @@ print_unsigned_long:
     ;;for (i=0...n/2):
     ;;  [i] = [n-1-i]
 
+
 .loop_reversing:
     ;;do swap via the stack
+    push    edx
     mov     byte dl, [esi]      ;;save [esi] in stack
     push    edx
     mov     byte dl, [ebx]      ;;move [ebx] to DL
     mov     byte [esi], dl      ;;move DL = [ebx] to [esi]
     pop     edx
     mov     byte [ebx], dl      ;;move DL = [esi] to [edx]
+    pop     edx
     ;;[esi] and [ebx] are swapped
     inc     esi     ;;move ESI forward
     dec     ebx     ;;move EBX back
@@ -442,6 +445,8 @@ print_unsigned_long:
     jne     .loop_reversing
 
 .end_loop_reversing:
+
+
     pop     edx      ;;restore EDX
     pop     ebx      ;;restore EBX
     pop     esi      ;;restore ESI

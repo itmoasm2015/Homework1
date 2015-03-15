@@ -8,10 +8,8 @@ using namespace std;
 
 int main() {
 
-    char out[106];
-    hw_sprintf(out, "% l%d", 10);
-    printf("%s\n", out);
-    return 0;
+    char out[256];
+
 
     hw_sprintf(out, "%8u=%-8u", 10, 10);
     printf("%s\n", out);
