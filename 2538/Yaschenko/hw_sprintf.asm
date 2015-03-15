@@ -121,6 +121,7 @@ hw_sprintf:
 	;; At this point 'flags', 'width', 'size' and 'type' are parsed
 	;; for current '%' and appropriate flags (ebx) are set.
 	;; Store current argument to output in EDX:EAX.
+	inc esi			; skip 'type' char (u|i|d)
 	testf(FLAG_LL)
 	jnz .prepare_output_64
 
@@ -170,15 +171,19 @@ hw_sprintf:
 	mov edi, buf
 	call int_to_str
 	pop edi
-	mov ecx, eax
+	
+	push ecx
 	push esi
+	mov ecx, eax
 	mov esi, buf
 .write_char:
 	movsb
 	loop .write_char
 .write_number_done:
 	pop esi
-	jmp .return
+	pop ecx
+	add esp, 8		; clear format length and last '%' pos
+	jmp .main_loop		; continue main parse loop
 
 .calc_padding:
 	push edi
@@ -256,11 +261,11 @@ int_to_str:
 	cmp eax, 0		; If EDX:EAX != 0, continue division
 	jne .div_loop
 
-	pop ecx			; ECX contains length of number
-	cmp ecx, 1		; Do not reverse since there is only one character
+	pop eax
+	cmp eax, 1		; Do not reverse since there is only one character
 	jle .return
-	push ecx
 .reverse:
+	push eax
 	mov ebx, edi
 	sub ebx, ecx		; EBX points to first char
 	dec edi			; EDI points to last char
@@ -281,12 +286,13 @@ int_to_str:
 	inc ebx			; Move ptr to first char
 	dec edi			; Move ptr to last char
 	jmp .reverse_loop
+.reverse_done:
+	pop eax
 	
 .return:
-	pop eax 		; Number of chars in string representation
 	pop edi			; Restore the rest of registers
 	pop ecx
-	pop edx
+	pop ebx
 	ret
 
 ;; Puts '-', '+' or ' ' (1st symbol of number) to [edi] and moves edi forward.
