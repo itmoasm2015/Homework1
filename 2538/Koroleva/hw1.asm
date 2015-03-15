@@ -47,6 +47,12 @@ write_unsigned:
 	push esi
 
 .long_loop
+	cmp edx, 0
+	jne .continue
+	pop esi
+	jmp .loop
+	
+.continue
 	push eax           
 	mov eax, edx
 	mov edx, 0
@@ -55,19 +61,11 @@ write_unsigned:
 	pop eax
 	div ecx	
 
-
-	cmp edx, 0
-	je .continue
-
 	add edx, '0'
 	dec edi
 	mov byte[edi], dl
-.continue
-	mov edx, esi	
-	cmp edx, 0
-	jne .long_loop
-	pop esi
-	jmp .loop
+	mov edx, esi
+	jmp .long_loop
 	
 .write
 	mov eax, edi
