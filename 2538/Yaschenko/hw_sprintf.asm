@@ -161,7 +161,7 @@ hw_sprintf:
 	test ebx, FLAG_ZERO	; if has zero pad
 	jz .calc_padding
 	call output_first_char
-	
+
 .calc_padding:
 	
 	
@@ -217,7 +217,7 @@ int_to_str:
 	div ecx
 	xchg ebx, edx		; EDX:EAX is divided by ten, remainder in EBX
 
-	inc [esp + 1]		; Increment chars counter
+	inc byte [esp + 1]	; Increment chars counter
 	add bl, '0'		; Turn remainder into char
 	mov [edi], bl		; Put char to output
 	inc edi
