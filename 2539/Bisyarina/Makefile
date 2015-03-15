@@ -4,7 +4,7 @@ CXX_FLAGS = -m32 -L. -I../../include
 all: test
 
 test: libhw.a test.o
-	g++ -g -o test $(CXX_FLAGS) test.o -lhw
+	 g++ -g -o test $(CXX_FLAGS) test.o -lhw
 
 test.o: test.cpp
 	g++ -g -o test.o $(CXX_FLAGS) -c test.cpp
@@ -18,5 +18,5 @@ libhw.o: hw_sprintf.asm
 clean:
 	rm -f libhw.a
 	rm -f libhw.o
-	rm -f test.o
 	rm -f test
+	rm -f test.o

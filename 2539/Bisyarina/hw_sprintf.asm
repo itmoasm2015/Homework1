@@ -57,9 +57,8 @@ hw_sprintf:
 ;;; Function parses command sequence and adds result to out buffer
 ;;; If incorrect sequence symbol from ESI put to out buffer, ESI incremented
 .parse_comm_seq:
-	xor al, al
-	mov [flag], al		; initialising flags and width with 0
-	mov [width], al
+	mov dword [flag], 0 	; initialising flags and width with 0
+	mov dword [width], 0
 .parse_flags:			;parsing flags
 	inc ebp
 	mov al, [ebp]
@@ -232,6 +231,7 @@ hw_sprintf:
 	or ecx, IS_NEGATIVE
 	or ecx, SHOW_SIGN
 	mov [flag], ecx
+	jmp .parse_num
 
 ;;; Takes value edx:eax and puts it's chars using FLAG to EDI
 .parse_num:
@@ -271,6 +271,7 @@ hw_sprintf:
 	jne .process_hi_part
 	cmp ebx, 0
 	jne .process_hi_part
+
 ;; start processing minimal width
 	mov eax, [flag]
 	and eax, WIDTH_SET 	; check if minimal width is set
@@ -301,13 +302,37 @@ hw_sprintf:
 	jne .put_sign		; start putting put value if left alignment
 
 	mov eax, [flag]
-	and eax, ZERO_SYMB_COMPL ;determine symbol to complete with
+	and eax, ZERO_SYMB_COMPL ; determine symbol to complete with
 	cmp eax, 0
 	jne .put_zero
 	mov dl, ' '
 	jmp .put_compl
-.put_zero:
+.put_zero:			; set completion symbol '0'
 	mov dl, '0'
+	mov eax, [flag]
+	and eax, SHOW_SIGN 	; put out sign before completion if needed
+	cmp eax, 0
+	je .put_compl
+
+	mov eax, [flag]
+	xor eax, SHOW_SIGN	; fix not to put sign twice
+	mov [flag], eax
+
+	mov eax, [flag]
+	and eax, IS_NEGATIVE	
+	cmp eax, 0
+	
+	jne .put_zero_minus
+	mov al, '+'
+	mov [edi], al
+	inc edi
+	jmp .put_compl
+
+.put_zero_minus:
+	mov al, '-'
+	mov [edi], al
+	inc edi
+
 .put_compl:			; put completion string to out buffer
 	cmp ebx, 0
 	jle .put_sign
@@ -394,3 +419,4 @@ hw_sprintf:
 	pop edi
 	pop esi
 	pop ebx
+	ret
