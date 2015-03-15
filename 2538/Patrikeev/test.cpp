@@ -6,13 +6,14 @@
 int main() {
 
     char out[256];
- //   hw_sprintf(out, "Hello, I am a cool string!!!!!!!!!");
-    memset(out, 0, sizeof(out));
-    hw_sprintf(out, "% 10d");
 
+    memset(out, 0, sizeof(out));
+    
+    hw_sprintf(out, "%+-10llu", (unsigned long long) 10);
+    
 
     for (int i = 0; i < 50; i++) {
-        printf("%d ", out[i]);
+        printf("%c ", out[i]);
     }
 
     return 0;
