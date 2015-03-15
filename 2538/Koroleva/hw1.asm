@@ -142,13 +142,14 @@ write_unsigned:
 	jz .write_loop
 
 .prev_loop_zero
+	cmp ecx, 0
+	jle .write_loop
+	
 	mov dl, '0'
 	mov byte[edi], dl
 	inc edi
 	dec ecx
-	cmp ecx, 0
-	jg .prev_loop_zero
-	jmp .write_loop
+	jmp .prev_loop_zero
 	
 .write_loop			;теперь, наконец-то, запишем в out наше число!
 	mov dl, byte[eax]
@@ -160,14 +161,18 @@ write_unsigned:
 
 	test ebx, FLAG_MINUS	;если был флаг "-", то нужно дополнить его до ширины пробелами(minus_loop) 
 	jz .ret
+
 .minus_loop
+	cmp ecx, 0
+	jle .ret
+
+
 	mov dl, ' '
 	mov byte[edi], dl
 	inc edi
 	dec ecx
-	cmp ecx, 0
-	jg .minus_loop
-
+	jmp .minus_loop
+	
 .ret
 	mov eax, esi		;возвращаемое значение сохраняется в eax 
 	pop esi 
