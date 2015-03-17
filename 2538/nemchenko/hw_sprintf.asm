@@ -4,6 +4,7 @@
 %define cur_low_bits [ebp]
 %define cur_high_bits [ebp + 4]
 %define begin_format edi
+%define cur_number ebp
 section .text
 
 ;void hw_sprintf(char *out_buf, char const *format, ...);
@@ -28,17 +29,17 @@ hw_sprintf:
     .while_format_not0:
         mov [out_buf], byte 0
         xor eax, eax
-        mov begin_format, esi
-        lodsb                          ; cur_char = *(format++)
+        mov begin_format, format
+        lodsb                                  ; cur_char = *(format++)
 
-        cmp cur_char, 0                
-        je  .end_format_not0           ; if (cur_char == 0) break;
+        cmp cur_char, 0                        
+        je  .end_format_not0                   ; if (cur_char == 0) break;
 
-        cmp cur_char, '%'              ; if (cur_char != '%') just_print & continue
+        cmp cur_char, '%'                      ; if (cur_char != '%') just_print & continue
         jne .just_print
 
         ; cur_char == '%'
-        lodsb                          ; cur_char = *(format++)
+        lodsb                                  ; cur_char = *(format++)
 
         mov [flags], byte 0
         mov [field_width], byte 0
@@ -54,22 +55,24 @@ hw_sprintf:
         cmp cur_char, 'l'
         jne .out_number
 
-        lodsb                          ; cur_char = *(format++)
+        lodsb                                   ; cur_char = *(format++)
         cmp cur_char, 'l'
-        jne .print_incorrect_format    ; %[smth]l
+        jne .print_incorrect_format             ; %[smth]l
 
-        lodsb                          ; cur_char = *(format++)
-        or [flags], byte size8_flag
+        lodsb                                   ; cur_char = *(format++)
+        or [flags], byte size8_flag             ; %[smth]ll
 
         .out_number:
             cmp cur_char, 'u'
             jne .out_signed_number
 
+            ; %[smth]u
             .out_unsigned_number:
                 test [flags], byte size8_flag
                 jnz .get_unsigned_long_long
                 jmp .get_unsigned_int
 
+            ; %[smth]!u
             .out_signed_number:
                 cmp cur_char, 'd'
                 je .out_signed_d_number
@@ -77,7 +80,7 @@ hw_sprintf:
                 je .out_signed_d_number
                 jmp .print_incorrect_format
 
-                .out_signed_d_number:   ; %[flags]u[i|d]
+                .out_signed_d_number:            ; %[flags]u[i|d]
                     test [flags], byte size8_flag
                     jnz .get_signed_long_long
                     jmp .get_signed_int
@@ -94,21 +97,21 @@ hw_sprintf:
         .get_unsigned_long_long:
             push dword cur_low_bits
             push dword cur_high_bits
-            add  ebp, 8                       ; go to next number
+            add  cur_number, 8                   ; go to next number
             jmp .print_number
 
         .get_unsigned_int:
             push dword cur_low_bits
             push dword 0
-            add  ebp, 4                       ; go to next number
+            add  cur_number, 4                   ; go to next number
             jmp .print_number
 
         .get_signed_long_long:
             cmp cur_high_bits, dword 0 
             jge .next_get_signed_long_long
-            or  [flags], byte negative_flag   ; set flag if number < 0
 
-            ; [ebp + 4]:[ebp] = abs([ebp + 4]:[ebp])
+            or  [flags], byte negative_flag      ; set flag if number < 0
+            ; number = abs(number)
             not dword cur_low_bits
             not dword cur_high_bits
             inc dword cur_low_bits
@@ -117,31 +120,33 @@ hw_sprintf:
             ; we must add carry to high bits
             adc cur_high_bits, dword 0 
 
-
             .next_get_signed_long_long:
                 push dword cur_low_bits
                 push dword cur_high_bits
-                add  ebp, 8                   ; go to next number
+                add  cur_number, 8              ; go to next number
                 jmp  .print_number
 
         .get_signed_int:
             cmp cur_low_bits, dword 0 
             jge .next_get_signed_int
-            or  [flags], byte negative_flag   ; set neg_flag if number < 0
-            ; [ebp] = abs([ebp])
+            or  [flags], byte negative_flag     ; set neg_flag if number < 0
+            ; number = abs(number)
             not  dword cur_low_bits
             inc  dword cur_low_bits             
 
             .next_get_signed_int:
                 push dword cur_low_bits
                 push dword 0
-                add  ebp, 4                   ; go to next number
+                add  cur_number, 4              ; go to next number
                 jmp .print_number
 
         .print_number:
+            ; on stack:
+            ;   high bits
+            ;   low bits
             call num_to_str
             call print_num_with_padding
-            add  esp, 8                       ; pop 2 arguments
+            add  esp, 8                         ; pop 2 arguments
             jmp .while_format_not0
 
 
@@ -149,7 +154,7 @@ hw_sprintf:
             dec format
             .while_format_note_beg:
                 cmp begin_format, format
-                je .while_format_not0           ; if (begin_format == format) continue
+                je  .while_format_not0          ; if (begin_format == format) continue
                 mov eax, [begin_format]
                 mov [out_buf], eax              ; *out = *begin_format;
                 inc begin_format                ; begin_format++
@@ -236,10 +241,11 @@ parse_field_width:
 
 ; int num_to_str(unsigned long long value)
 ; print string representation of value in reverse order to str_repr
+; set len_str_repr = len(str_rep)
 ; stack:
-; return address
-; high bits
-; low bits
+;   return address
+;   high bits
+;   low bits
 num_to_str:
     push ebp
     lea ebp, [esp + 8]
@@ -286,7 +292,8 @@ num_to_str:
     ret
 
 ; void print_num_with_padding()
-; out_buffer in $ebx = out_buf
+; print str_repr to out_buf in right order
+; with padding '0' or ' '  and if needed with sign '+' or '-' 
 print_num_with_padding:
     push eax
     mov eax, [field_width]
@@ -294,13 +301,14 @@ print_num_with_padding:
     mov eax, [len_str_repr]
     sub [padding_size], eax   ; int padding_size = field_width - len_number;
 
+    ; al = plus_flag | space_padding_flag | negative_flag
     mov al, byte plus_flag
     or  al, byte space_padding_flag
     or  al, byte negative_flag
 
     test [flags], al         ; if (flags & (plus_flag | space_padding_flag | negative_flag)) {
     jz .without_dec
-    dec dword [padding_size]     
+    dec dword [padding_size] ; we have to print sign, therefore padding decrement
 
     .without_dec:
 
@@ -309,19 +317,15 @@ print_num_with_padding:
 
     ;if (padding_size > 0) {
     mov al, byte minus_flag
-    test [flags], al
+    test [flags], al         
     jz .print_without_minus_flag
 
     ;if (flags & minus_flag) {
     call print_sign
     call print_number
-    ;while (padding_size) {
-        ;*out = ' ';
-        ;out++;
-        ;padding_size--
-    ;}
+
     mov al, ' '
-    call print_padding
+    call print_padding  ; if minus_flag : [+|-][number][padding ' ']
     pop eax
     ret
 
@@ -330,11 +334,8 @@ print_num_with_padding:
         test [flags], byte zero_padding_flag
         jnz .print_with_zero_padding
 
-        ;for (int k = 0; k < padding_size; k++) {
-            ;*out = ' ';
-            ;out++;
-        ;}
-        ;print_sign(out);
+        ; padding = ' '
+        ; [padding ' '][+|-][number]
         mov al, ' '
         call print_padding
         call print_sign
@@ -342,12 +343,14 @@ print_num_with_padding:
 
         ; if (flags & zero_padding_flag) 
         .print_with_zero_padding:
+            ; padding = '0'
+            ; [+|-][padding '0'][number]
             call print_sign
             mov al, '0'
             call print_padding
             jmp .end_print_with_padding
 
-
+    ; if (padding_size <= 0) print without padding
     .just_print_number:
         call print_sign
 
@@ -357,6 +360,8 @@ print_num_with_padding:
         ret
 
 ; void print_sign()
+; print in out_buf sign of number if needed
+; al = sign_symbol[' ' | '0']
 print_sign:
     test [flags], byte negative_flag
     jnz .case_neg_flag
@@ -384,6 +389,7 @@ print_sign:
         ret
 
 ; void print_number()
+; print in out_buf str_repr[len_str_repr - 1 .. 0]
 print_number:
     push eax
     push edi
@@ -404,7 +410,7 @@ print_number:
         ret
 
 ; void print_padding()
-; eax = padding_symbol
+; al = padding_symbol[' ' | '0']
 print_padding:
     .while_padding_size:
         mov [out_buf], al

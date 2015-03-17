@@ -3,7 +3,8 @@
 #include <iostream>
 #include <ctime>
 #include <cstdlib>
-
+#include <cassert>
+#include <fstream>
 using namespace std; 
 
 namespace {
@@ -77,6 +78,7 @@ namespace {
     }
 }
 
+char buf[100000000];
 int main() {
     srand(time(NULL));
     check("|%+05u|");
@@ -92,6 +94,11 @@ int main() {
     check("hello, friend %+- 109llo, %0+-  %, %d");
     check("|%d| {% 08u=%+08u}{%+04d=%+0-6d}");
     check("|%lld|");
+    my_sprintf(buf, "%+-+-    -+d %         +8ii", 123, -4324);
+    string s1(buf);
+    hw_sprintf(buf, "%+-+-    -+d %         +8ii", 123, -4324);
+    assert(string(buf) == s1);
+
     cerr << "GOOD!" << endl;
 }
 
