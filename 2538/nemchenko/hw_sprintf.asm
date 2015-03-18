@@ -219,6 +219,7 @@ set_flags:
 ; format saved in esi
 parse_field_width:
     push edi
+    mov [field_width], dword 0
     .while_parse_field_width:
         cmp cur_char, '9'
         jg .end
@@ -251,6 +252,7 @@ num_to_str:
     lea ebp, [esp + 8]
     push esi
     push ebx
+    push edx
     
     mov [len_str_repr], dword 0
     mov ecx, 10
@@ -289,6 +291,7 @@ num_to_str:
 
     .end_while_num_not0:
 
+    pop edx
     pop ebx
     pop esi
     pop ebp
@@ -349,7 +352,7 @@ print_num_with_padding:
             ; padding = '0'
             ; [+|-][padding '0'][number]
             call print_sign
-            mov al, '0'
+            mov cur_char, '0'
             call print_padding
             jmp .end_print_with_padding
 
@@ -415,6 +418,8 @@ print_number:
 ; void print_padding()
 ; al = padding_symbol[' ' | '0']
 print_padding:
+    push edx
+    mov edx, padding_size
     .while_padding_size:
         mov [out_buf], al
         inc out_buf
@@ -423,6 +428,7 @@ print_padding:
         jz .end_print_with_padding
         jmp .while_padding_size
     .end_print_with_padding:
+    pop edx
     ret
 
 section .bss

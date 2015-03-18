@@ -78,31 +78,41 @@ namespace {
     }
 }
 
-char buf[100000000];
+int x;
+char buf[1000001];
+int y;
 int main() {
-
-    srand(time(NULL));
-    check("|%+05u|");
-    check("|% u|");
-    check("|%+5u|");
-    check("|%wtf|");
-    check("|Hello world %d|");
-    check("|%8u=%-8u|");
-    check("|%100d|");
-    check("|%+10-0000d|");
-    check("|% l%d|");
-    check("|%ll %d|");
-    check("hello, friend %+- 109llo, %0+-  %, %d");
-    check("|%d| {% 08u=%+08u}{%+04d=%+0-6d}");
-    check("|%lld|");
-    hw_sprintf(buf, "%llu", 18446744073709551615LLU);
+    hw_sprintf(buf, "%01000000d", 1);
+    hw_sprintf(buf, "%01000000d", 0);
+    hw_sprintf(buf, "%01000000d", 1);
+    hw_sprintf(buf, "%01000000d", 123123);
     cerr << buf << endl;
 
-    hw_sprintf(buf, "%lli", 4294967296);
-    cerr << "|" << buf << "|" << endl;
-    //assert(string(buf) == s1);
+    //cout << x << y << endl;
 
-    cerr << "GOOD!" << endl;
+    //srand(time(NULL));
+    //check("|%+05u|");
+    //check("|% u|");
+    //check("|%+5u|");
+    //check("|%wtf|");
+    //check("|Hello world %d|");
+    //check("|%8u=%-8u|");
+    //check("|%100d|");
+    //check("|%+10-0000d|");
+    //check("|% l%d|");
+    //check("|%ll %d|");
+    //check("hello, friend %+- 109llo, %0+-  %, %d");
+    //check("|%d| {% 08u=%+08u}{%+04d=%+0-6d}");
+    //check("|%lld|");
+    //hw_sprintf(buf, "%llu", 18446744073709551615LLU);
+    //cerr << buf << endl;
+
+    //hw_sprintf(buf, "%lli", 4294967296);
+    //cerr << "|" << buf << "|" << endl;
+
+    ////assert(string(buf) == s1);
+
+    //cerr << "GOOD!" << endl;
 }
 
 
