@@ -97,6 +97,9 @@ int main() {
     check("|%lld|");
     hw_sprintf(buf, "%llu", 18446744073709551615LLU);
     cerr << buf << endl;
+
+    hw_sprintf(buf, "%lli", 4294967296);
+    cerr << "|" << buf << "|" << endl;
     //assert(string(buf) == s1);
 
     cerr << "GOOD!" << endl;
