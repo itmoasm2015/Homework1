@@ -251,6 +251,7 @@ num_to_str:
     lea ebp, [esp + 8]
     push esi
     push ebx
+    push edi
     
     mov [len_str_repr], dword 0
     mov ecx, 10
@@ -259,6 +260,7 @@ num_to_str:
     ; ebp + 4 --> low bits
     mov edx, [ebp]
     mov eax, [ebp + 4]
+    mov edi, len_str_repr
 
     .while_num_not0:
         cmp eax, 0
@@ -285,7 +287,9 @@ num_to_str:
 
     .end_while_num_not0:
     mov esi, str_repr
+    mov esi, [len_str_repr]
 
+    pop edi
     pop ebx
     pop esi
     pop ebp
@@ -427,7 +431,7 @@ section .bss
     flags:        resb 1
     field_width:  resd 1
     cur_digit:    resb 1
-    str_repr:     resb 22
+    str_repr:     resb 25
     len_str_repr: resd 1
     padding_size: resd 1
     sign:         db 0

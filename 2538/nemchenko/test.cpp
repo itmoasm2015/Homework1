@@ -80,24 +80,24 @@ namespace {
 
 char buf[100000000];
 int main() {
-    srand(time(NULL));
-    check("|%+05u|");
-    check("|% u|");
-    check("|%+5u|");
-    check("|%wtf|");
-    check("|Hello world %d|");
-    check("|%8u=%-8u|");
-    check("|%100d|");
-    check("|%+10-0000d|");
-    check("|% l%d|");
-    check("|%ll %d|");
-    check("hello, friend %+- 109llo, %0+-  %, %d");
-    check("|%d| {% 08u=%+08u}{%+04d=%+0-6d}");
-    check("|%lld|");
-    my_sprintf(buf, "%+-+-    -+d %         +8ii", 123, -4324);
-    string s1(buf);
-    hw_sprintf(buf, "%+-+-    -+d %         +8ii", 123, -4324);
-    assert(string(buf) == s1);
+
+    //srand(time(NULL));
+    //check("|%+05u|");
+    //check("|% u|");
+    //check("|%+5u|");
+    //check("|%wtf|");
+    //check("|Hello world %d|");
+    //check("|%8u=%-8u|");
+    //check("|%100d|");
+    //check("|%+10-0000d|");
+    //check("|% l%d|");
+    //check("|%ll %d|");
+    //check("hello, friend %+- 109llo, %0+-  %, %d");
+    //check("|%d| {% 08u=%+08u}{%+04d=%+0-6d}");
+    //check("|%lld|");
+    hw_sprintf(buf, "%llu", 18446744073709551615LLU);
+    cerr << buf << endl;
+    //assert(string(buf) == s1);
 
     cerr << "GOOD!" << endl;
 }

@@ -4,8 +4,8 @@ PROJECT_NAME=test
 OBJ=my_sprintf.o test.o hw_sprintf.o
 
 all: $(OBJ)
-	#$(CC) -m32 $? -o $(PROJECT_NAME) 
-	ar rcs libhw.a hw_sprintf.o
+	$(CC) -m32 $? -o $(PROJECT_NAME) 
+	#ar rcs libhw.a hw_sprintf.o
 	rm *.o
 
 hw_sprintf.o: hw_sprintf.asm
