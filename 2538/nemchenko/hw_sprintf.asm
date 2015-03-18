@@ -251,7 +251,6 @@ num_to_str:
     lea ebp, [esp + 8]
     push esi
     push ebx
-    push edi
     
     mov [len_str_repr], dword 0
     mov ecx, 10
@@ -260,7 +259,6 @@ num_to_str:
     ; ebp + 4 --> low bits
     mov edx, [ebp]
     mov eax, [ebp + 4]
-    mov edi, len_str_repr
 
     .while_num_not0:
         cmp eax, 0
@@ -290,9 +288,7 @@ num_to_str:
         jmp .while_num_not0
 
     .end_while_num_not0:
-    mov esi, str_repr
 
-    pop edi
     pop ebx
     pop esi
     pop ebp
