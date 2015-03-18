@@ -418,8 +418,6 @@ print_number:
 ; void print_padding()
 ; al = padding_symbol[' ' | '0']
 print_padding:
-    push edx
-    mov edx, padding_size
     .while_padding_size:
         mov [out_buf], al
         inc out_buf
@@ -428,7 +426,6 @@ print_padding:
         jz .end_print_with_padding
         jmp .while_padding_size
     .end_print_with_padding:
-    pop edx
     ret
 
 section .bss
