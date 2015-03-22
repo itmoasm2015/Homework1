@@ -7,7 +7,7 @@ using namespace std;
 
 int main() {
     char container[1024];
-    hw_sprintf(container, "Mem%+-0d", 228);
+   hw_sprintf(container, "M%++a%34d mdaa", 228);
     cout << container << endl;
     sprintf(container, "Mem%d", 228);
     cout << container << endl;
