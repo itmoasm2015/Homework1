@@ -147,8 +147,12 @@ hw_sprintf:
 .parse_type_procent:
         xor     eax, eax
         xor     ebx, ebx
+        add     esp, 4
         jmp     .regular_copy
 .output_special:
+        ;; TODO Output here
+        xor     eax, eax
+        xor     ebx, ebx
         inc     esi
 .end_parsing:
         add     esp, 4          ; pop the value of recovery point
