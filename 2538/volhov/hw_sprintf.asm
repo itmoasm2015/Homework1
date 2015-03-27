@@ -280,20 +280,56 @@ hw_sprintf:
         pop     edx
         pop     ebx
 
-;;; In this part, we form out string, now we have
+;;; In this part, we form out string, now we have flags, width, formatted number string, its length.
 .form_layout
-;;; recovering
-        mov     ebx, 0          ; counter
-..loop_out:
-        mov     edx, ebx
-        add     edx, dec_repres_str
-        mov     dl, byte [edx]
-        mov     [edi], dl
+        mov     ebx, 0                   ; counter to iterate over new string
+        cmp     ecx, [dec_repres_length] ; compare width with real minimum width of number
+        jle     ..loop_out               ; if less or equal, no need to make any margins
+        bt      eax, offset_minus        ; check if we must insert margin on right side
+        jc      ..loop_out               ; if yes, then just print number, else print left margin
+        ;; print left margin
+        mov     dl, ' '                  ; set default margin fill char
+        bt      eax, offset_zero         ; check if '0' char must be used instead
+        jnc     ..no_set_divider_zero    ; if no, just fill the left margin
+        mov     dl, '+'                  ; else set '0' sign
+..no_set_divider_zero:
+        mov     ebx, ecx                 ; move padding size (width)
+        sub     ebx, [dec_repres_length] ; get the length of margin (... - real number length)
+..loop_left_margin:
+        mov     byte [edi], dl          ; set next char in the output to the certain margin sign
+        dec     ebx
         inc     edi
-        inc     ebx
-        cmp     ebx, dword [dec_repres_length]
+        jnz     ..loop_left_margin      ; loop if margin is not over
+
+        xor     ebx, ebx                ; reset the counter for ..loop_out
+
+        ;; output the number
+..loop_out:
+        mov     edx, ebx            ; move current counter (shift) to edx
+        add     edx, dec_repres_str ; add real address of string to this shift
+        mov     dl, byte [edx]      ; move the desired byte to dl
+        mov     [edi], dl                      ; print char to destination
+        inc     edi                            ; move to next destination char
+        inc     ebx                            ; increment counter
+        cmp     ebx, dword [dec_repres_length] ; compare current length of number with real
         jb      ..loop_out
 
+        ;; print right margin
+        cmp     ecx, [dec_repres_length] ; compare width with real minimum width of number
+        jle     .special_sequence_end    ; if less or equal, no need to make any margins
+        bt      eax, offset_minus        ; check if we must insert margin on right side
+        jnc     .special_sequence_end    ; if not, then just fill right side with ' '
+        mov     ebx, ecx                 ; get width to ebx
+        sub     ebx, [dec_repres_length] ; get margin size
+..loop_right_margin:
+        mov     byte [edi], ' ' ; move the ' ' to destination
+        dec     ebx             ; decrement counter of written chars
+        inc     edi             ; increment the destination
+        jnz     ..loop_right_margin
+
+
+;;; The sequence processing is over. There are some clearups here.
+.special_sequence_end:
         ;; restore variables
         xor     eax, eax
         xor     ebx, ebx
