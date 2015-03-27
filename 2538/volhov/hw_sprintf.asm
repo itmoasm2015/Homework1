@@ -60,27 +60,19 @@ hw_sprintf:
         jz      .parse_zero
         jmp     .parse_width
 .parse_plus:
-        bt      eax, offset_plus
-        jc      .parse_special_failed
         bts     eax, offset_plus
         inc     esi
         jmp     .parse_flags
 .parse_space:
-        bt      eax, offset_space
-        jc      .parse_special_failed
         bts     eax, offset_space
         inc     esi
         jmp     .parse_flags
 .parse_minus:
-        bt      eax, offset_minus
-        jc      .parse_special_failed
         btr     eax, offset_zero
         bts     eax, offset_minus
         inc     esi
         jmp     .parse_flags
 .parse_zero:
-        bt      eax, offset_zero
-        jc      .parse_special_failed
         bt      eax, offset_minus
         jc      .parse_zero_left
         bts     eax, offset_zero
