@@ -239,10 +239,13 @@ hw_sprintf:
 
 
         xor     esi, esi            ; esi will hold cycle count
+        bt      ebp, offset_zero    ; check if there is a '0' flag
+        jc      ..restore_sequence  ; if it's present, skip setting sign here
+                                    ; because we need sign0000num form, not 0000signnum
         bt      ebp, offset_sign    ; check if there's a minus
         jc      ..set_minus         ; if present, just add '-' to string
         bt      ebp, offset_plus    ; check if there's a '+' flag
-        jnc     ..set_plus          ; proceed to '+' flag handler
+        jc      ..set_plus          ; proceed to '+' flag handler
         bt      ebp, offset_space   ; check if there's a ' ' flag
         jnc     ..restore_sequence         ; proceed to ' ' flag handler
         mov     byte [dec_repres_str], ' ' ; move ' ' to string start
@@ -289,16 +292,28 @@ hw_sprintf:
         jc      ..loop_out               ; if yes, then just print number, else print left margin
         ;; print left margin
         mov     dl, ' '                  ; set default margin fill char
-        bt      eax, offset_zero         ; check if '0' char must be used instead
-        jnc     ..no_set_divider_zero    ; if no, just fill the left margin
-        mov     dl, '+'                  ; else set '0' sign
-..no_set_divider_zero:
+        bt      eax, offset_zero         ; check if '0' flag present
+        jnc     ..after_zero_flag_set    ; if no, just fill the left margin
+        mov     dl, '0'                  ; else set '0' char
+        bt      eax, offset_sign         ; also test if we need to put sign before '000000' margin
+        jnc     ..set_plus_sign_maybe    ; if our number is '-', just put '-'
+        mov     byte [edi], '-'          ; put '-'
+        inc     edi                      ; move to next char
+        dec     ecx                      ; also decrease width by 1
+        jmp     ..after_zero_flag_set
+..set_plus_sign_maybe:
+        bt      eax, offset_plus         ; check if '+' is really needed
+        jnc     ..after_zero_flag_set    ; if not needed, print margin
+        mov     byte [edi], '+'
+        inc     edi
+        dec     ecx
+..after_zero_flag_set:
         mov     ebx, ecx                 ; move padding size (width)
         sub     ebx, [dec_repres_length] ; get the length of margin (... - real number length)
 ..loop_left_margin:
         mov     byte [edi], dl          ; set next char in the output to the certain margin sign
-        dec     ebx
         inc     edi
+        dec     ebx
         jnz     ..loop_left_margin      ; loop if margin is not over
 
         xor     ebx, ebx                ; reset the counter for ..loop_out
@@ -323,8 +338,8 @@ hw_sprintf:
         sub     ebx, [dec_repres_length] ; get margin size
 ..loop_right_margin:
         mov     byte [edi], ' ' ; move the ' ' to destination
-        dec     ebx             ; decrement counter of written chars
         inc     edi             ; increment the destination
+        dec     ebx             ; decrement counter of written chars
         jnz     ..loop_right_margin
 
 
