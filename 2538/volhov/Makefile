@@ -1,4 +1,4 @@
-all: run libhw.a
+all: libhw.a
 
 run: test
 	./test
@@ -9,7 +9,7 @@ test: hw_sprintf.o test.cpp
 %.o: %.asm
 	yasm -f elf32 -g dwarf2 -o $@ $^
 
-libhw.a: asm
+libhw.a: hw_sprintf.o
 	ar rcs libhw.a hw_sprintf.o
 
 clean:

@@ -8,19 +8,19 @@ section .text
 %define offset_space 1          ; offset for flag ' '
 %define offset_minus 2          ; offset for flag '-'
 %define offset_zero  3          ; offset for flag '0'
-%define offset_recovery 4       ; used for printing bad control sequences directly
-%define offset_is_ll 5          ; is our number is long long
-%define offset_type 6           ; type of number: if 0, int, if 1, unsigned
-%define offset_sign 7           ; sign (if int): 0 - geq 0, 1 - le 0
+%define offset_is_ll 4          ; is our number is long long
+%define offset_type 5           ; type of number: if 0, int, if 1, unsigned
+%define offset_sign 6           ; sign (if int): 0 - geq 0, 1 - le 0
 
 ;;; void hw_sprintf(char *out, char const *format, ...)
 hw_sprintf:
         push    ebp             ; save previous base pointer
         mov     ebp, esp        ; save new base pointer
 
-        ;; save registers as cdecl says
+        ;; save registers
         push    edi
         push    ebx
+        push    esi
 
         mov     edi, [ebp+8]    ; edi - destination buffer, current symbol
         mov     esi, [ebp+12]   ; esi - source buffer, current symbol
@@ -357,6 +357,7 @@ hw_sprintf:
 
 
         ;; restore registers (cdecl)
+        pop     esi
         pop     ebx
         pop     edi
 
@@ -370,7 +371,3 @@ section .data
 arg_pointer:            resw 2  ; the pointer to current argument
 dec_repres_str:         resb 30 ; the number string itself (e.g. "-1241414")
 dec_repres_length:      resw 2  ; the length of previous string
-
-teststring:     db 'mamku_lublu))', 0
-printfformat:   db 'debug: %d', 10, 0
-printout:       db 'hw_sprintf: d', 10, 0
