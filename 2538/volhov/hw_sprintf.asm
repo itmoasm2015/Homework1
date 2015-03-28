@@ -350,6 +350,7 @@ hw_sprintf:
         xor     ebx, ebx
         inc     esi
         mov     dl, [esi]
+        jmp     .start_parsing
 .end_output:
         test    dl, dl
         jnz     .start_parsing
@@ -366,8 +367,7 @@ hw_sprintf:
         ret
 
 
-section .data
-
+section .bss
 arg_pointer:            resw 2  ; the pointer to current argument
 dec_repres_str:         resb 30 ; the number string itself (e.g. "-1241414")
 dec_repres_length:      resw 2  ; the length of previous string

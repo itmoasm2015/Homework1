@@ -25,5 +25,10 @@ int main() {
     sprintf(container, "%8u=%-8u", 1234, 1234);
     cout << container << endl;
 
+    hw_sprintf(container, "%+5d", 1);
+    cout << container << endl;
+    sprintf(container, "%+5d", 1);
+    cout << container << endl;
+
     return 0;
 }
