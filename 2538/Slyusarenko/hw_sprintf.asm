@@ -146,6 +146,7 @@ hw_sprintf:
 ; parsing can be unsuccessful. So need to print % because it's just a symbol and return eax to position after %
 .unsuccessful_parsing:	
 	mov eax, ecx
+	xor ecx, ecx
 	mov cl, byte [eax]
 	mov byte [ebx], cl
 	inc eax
@@ -154,6 +155,7 @@ hw_sprintf:
 
 ; get minimal width of the field
 .get_width:
+	push ecx ; position of eax before the parsing because parsing can be unsuccessful
 	xor esi, esi
 	.loop6:
 		cmp byte [eax], '0'
@@ -168,6 +170,7 @@ hw_sprintf:
 		add esi, ecx
 		jmp .loop6
 	.have_width:	
+		pop ecx ; restore value of position of eax before the parsing
 		jmp .get_size
 
 ; write signed int by write sign and then using function hw_uint which writes unsigned int

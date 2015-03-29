@@ -16,7 +16,7 @@ int main()
   printf("%s\n", out);
   hw_sprintf(out, "50%%");
   printf("%s\n", out);
-  hw_sprintf(out, "%10d", 123);
+  hw_sprintf(out, "%+10-0000d", 123);
   printf("%s\n", out);
   return 0;
 }
