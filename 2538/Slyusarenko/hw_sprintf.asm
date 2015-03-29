@@ -24,13 +24,13 @@ hw_sprintf:
 	add ebp, 16 ; ebp is pointing on first argument now
 
 .loop:
+	cmp byte [eax], 0
+	je .write_symbol  ; the last symbol in buffer, write it to set end of the buffer
 	cmp byte [eax], 0 ; finish if it's last symbol of the format string
 	je .end
 	cmp byte [eax], '%' ; if symbol isn't % write it
 	jne .write_symbol
 	jmp .after_percent
-	;inc eax ; get next symbol if it's % and we don't write it
-	;jmp .loop ; continue cicle if we don't print symbol
 
 ; restore registers at the and of executing program
 .end:	
@@ -47,6 +47,8 @@ hw_sprintf:
 	mov [ebx], cl
 	inc ebx
 	inc eax
+	cmp byte [eax - 1], 0
+	je .end ; if it's the last symbol in buffer then finish program
 	jmp .loop
 
 ; signed number is in edx
