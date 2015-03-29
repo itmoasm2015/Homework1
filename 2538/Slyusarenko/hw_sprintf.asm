@@ -43,8 +43,8 @@ hw_sprintf:
 
 ; move one symbol from eax (format string) to ebx (buffer) and increment registers to get next symbols
 .write_symbol:
-	mov cl, [eax]
-	mov [ebx], cl
+	mov cl, byte [eax]
+	mov byte [ebx], cl
 	inc ebx
 	inc eax
 	cmp byte [eax - 1], 0
@@ -95,7 +95,7 @@ hw_sprintf:
 .set_z_flag:
 	setf(Z_FLAG)
 	inc eax
-	jmp .get_flags			
+	jmp .get_width	
 
 .set_unsigned_flag:
 	setf(UNSIGNED_FLAG)
@@ -107,8 +107,6 @@ hw_sprintf:
 	xor edi, edi ; in edi only information about flags now
 	mov ecx, eax ; because it can be bad parsing and need to write symbol on which eax pointed
 	inc eax
-	cmp byte [eax], '%' ; if %% then write %
-	je .write_symbol
 	jmp .get_flags
 
 .get_flags:
@@ -132,6 +130,8 @@ hw_sprintf:
 .get_type:	
 	cmp byte [eax], 'u'
 	je .set_unsigned_flag
+	cmp byte [eax], '%'
+	je .write_symbol   ; if type is % just write it
 	cmp byte [eax], 'd'
 	je .parse_success
 	cmp byte [eax], 'i'
@@ -146,8 +146,8 @@ hw_sprintf:
 ; parsing can be unsuccessful. So need to print % because it's just a symbol and return eax to position after %
 .unsuccessful_parsing:	
 	mov eax, ecx
-	mov cl, [eax]
-	mov [ebx], cl
+	mov cl, byte [eax]
+	mov byte [ebx], cl
 	inc eax
 	inc ebx
 	jmp .loop
@@ -161,11 +161,12 @@ hw_sprintf:
 		cmp byte [eax], '9'
 		jg .have_width
 		xor ecx, ecx
-		mov cl, [eax]
+		mov cl, byte [eax]
 		sub cl, '0'
 		inc eax ; next symbol
 		imul esi, 10
 		add esi, ecx
+		jmp .loop6
 	.have_width:	
 		jmp .get_size
 
@@ -284,10 +285,10 @@ hw_uitoa:
 	mov edx, edi ; start position of our current buffer is in edx now
 	dec ebx ; return ebx to the final inserted now position
 	.loop2: ; reverse string and it looks like given unsigned int after this cicle
-		mov al, [ebx]
-		mov cl, [edi]
-		mov [edi], al
-		mov [ebx], cl
+		mov al, byte [ebx]
+		mov cl, byte [edi]
+		mov byte [edi], al
+		mov byte [ebx], cl
 		dec ebx
 		inc edi
 		cmp edi, ebx
@@ -328,16 +329,16 @@ hw_uitoa:
 	sub esi, edx ; number of symbols to append is in esi now
 	mov eax, edx ; current length of number is in eax now
 	mov edx, ebx ; final position of number is in edx now
-	sub edx, eax ; first position of number = final position of number - number length
+	sub edx, eax ; edx = first position of number = final position of number - number length
 	push edx ; save first position to stack
-	push ebx ; save porition to print next symbol on stack
+	push ebx ; save position to print next symbol on stack
 	xor edx, edx
 	dec ebx ; last position of number is in ebx now
 	.loop10:
 		sub ebx, edx ; begin to align from the last symbol of the number
-		mov cl, [ebx]
+		mov cl, byte [ebx]
 		add ebx, esi ; get position to print symbol by add symbol position to number of symbols to append
-		mov [ebx], cl
+		mov byte [ebx], cl
 		sub ebx, esi
 		add ebx, edx ; return ebx to the last final symbol of the number, because i increment edx and ebx must point on this position
 		inc edx
@@ -367,7 +368,6 @@ hw_luitoa:
         push ebp
         push edi ; information about flags
         push esi ; minimal width
-        ;mov esi, [ebp] ; first part of current argument are now in esi
         mov edi, ebx ; start position of our current buffer is in edi
 		push eax
 		push edx ; save registers value
@@ -394,10 +394,10 @@ hw_luitoa:
         mov edx, edi ; start position of our current buffer is in edx now
         dec ebx ; return ebx to the final inserted now position
         .loop5: ; reverse string and it looks like given unsigned int after this cicle
-                mov al, [ebx]
-                mov cl, [edi]
-                mov [edi], al
-                mov [ebx], cl
+                mov al, byte [ebx]
+                mov cl, byte [edi]
+                mov byte [edi], al
+                mov byte [ebx], cl
                 dec ebx
                 inc edi
                 cmp edi, ebx
@@ -445,9 +445,9 @@ hw_luitoa:
         dec ebx ; last position of number is in ebx now
         .loop12:
                 sub ebx, edx ; begin to align from the last symbol of the number
-                mov cl, [ebx]
+                mov cl, byte [ebx]
                 add ebx, esi ; get position to print symbol by add symbol position to number of symbols to append
-                mov [ebx], cl
+                mov byte [ebx], cl
                 sub ebx, esi
                 add ebx, edx ; return ebx to the last final symbol of the number, because i increment edx and ebx must point on this position
                 inc edx
