@@ -1,4 +1,9 @@
 global hw_sprintf
+global hw_ultoa
+global hw_ltoa
+global hw_utoa
+global hw_itoa
+
 
 section .bss
 string: 	resb 100		;space for converted number
@@ -167,18 +172,6 @@ hw_itoa:
 	ret
 ;===========================
 
-; in:
-;	ESI - pointer to str
-; out:
-;	EAX - string length
-strlen:
-	xor 	eax, eax 		;result = 0
-.loop
-	inc 	eax
-	cmp 	byte [esi], 0
-	jne .loop
-;===========================
-
 ; void hw_sprintf(char * out, const char * format, ...)
 ; in:
 ;	ESI - pointer to format buffer
@@ -197,7 +190,6 @@ hw_sprintf:
 	lea 	ecx, [esp + 28] ;first element of (...)
 	
 .main_loop:
-	
 	cmp 	byte [esi], '%'	;escape sequence => start proceed
 	je sequence_process		;after sequence_process we will jump to add_number 
 							;with correct ESI, EDI and flags in EBX
@@ -207,7 +199,6 @@ hw_sprintf:
 	cmp 	byte [esi-1], 0	;last symbol was /0 => finish
 	jne .main_loop
 
-	
 	pop 	esi
 	pop 	edi
 	pop 	ebx
@@ -294,15 +285,15 @@ sequence_process:
 	mov 	ecx, esi 		;save sequence last position
 	mov 	esi, [esp+12]	;restore sequence first position
 .copy_loop	
-	movsb 					;copy sequence char by char	
+	movsb 				    ;copy sequence char by char	
 	cmp 	ecx, esi
 	jne .copy_loop 			
 
+    mov     ecx, [esp+8]
+    add 	esp, 16			;clear used stack
+    jmp hw_sprintf.main_loop;no need to add number, esi point to next input char   
+
 .sequence_process_end
-	 
-	
-	 
-	;add 	esp, 12			;clear used stack
 	jmp add_number			;print number or '%' to *out
 
 ; bit setters here
@@ -329,26 +320,23 @@ sequence_process:
 	jmp .sequence_process_end
 
 .set_percent_type
+	mov 	ebx, [esp+4]	;restore flags
 	setflag(PERCENT_TYPE)
+	mov 	[esp+4], ebx
 	jmp .sequence_process_end	
 ;===========================
 
 ; helper function to add number to *out
-; in:
-;	EDI - out pointer
-;	EBX - format flags
-;	ECX - pointer to number argument
+; in: all data is on stack
+;   stack state: (+0)width; (+4)flags; (+8)pointer to data; (+12)sequence first position
 ; out:
 ;	EDI - correct out pointer 
 ;	ECX - correct pointer to next number argument
 ; use:
 ;	ESI
-; nothing on stack
 add_number:
-	;stack state: (+0)width; (+4)flags; (+8)pointer to data; (+12)sequence first position
 	mov 	ecx, [esp+8]
 	push 	esi 			;save pointer to next input char
-	push 	ecx 			;will be removed from stack before .done
 
 	mov 	esi, string+1 	;+1 is for '+' or ' ' if needed
 	testflag(PERCENT_TYPE)
@@ -366,11 +354,12 @@ add_number:
 	;now ESI is pointer to string with number 
 	xor 	eax, eax 		;result = 0
 	mov 	ecx, esi
-.strlen_loop
+.strlen_loop                ;i need it only once, so it isn't a function
 	inc 	ecx
 	cmp 	byte [ecx], 0
 	jne .strlen_loop
-	mov 	eax, ecx
+	
+    mov 	eax, ecx
 	sub 	eax, esi
 
 	sub 	edx, eax
@@ -379,16 +368,13 @@ add_number:
 	jne .add_space_or_plus
 .add_space_or_plus_end
 
-	;dec EDX - padding length  if we have any sign
+	;dec EDX - padding length  if we add '+' or ' '
 	cmp 	[esi], byte '+'
-	je .dec_edx
-	cmp 	[esi], byte '-'
 	je .dec_edx
 	cmp 	[esi], byte ' '
 	je .dec_edx
 
 .check_paddings 			;will stay here with correct padding length 
-
 	testflag(FLAG_MINUS)
 	jnz .copy_loop 			;do nothing now, add padding later
 	
@@ -404,15 +390,15 @@ add_number:
 	jnz .fill_end_padding
 
 .add_number_end
-	pop 	ecx
-	pop 	esi
-	add 	esp, 16
+	pop 	ecx             ;restore pointer to data
+	pop 	esi             ;restore pointer to format string
+	add 	esp, 16         ;clear used stack
 	jmp hw_sprintf.main_loop  ;retrun to main
 ;-------------------------
 .fill_end_padding
-	cmp 	edx, 0
+    cmp 	edx, 0          ;if padding length < 0 - do nothing
 	jle .add_number_end
-	.end_fill_loop
+	.end_fill_loop          ;add ' ' to the end 
 	mov 	[edi], byte ' '
 	inc 	edi
 	
@@ -421,32 +407,34 @@ add_number:
 	jne .end_fill_loop
 	mov 	[edi], byte 0
 	jmp .add_number_end
-
+;-------------------------
 .fill_padding
-	;fill between '+'\'-'\' ' and numbers, so inc esi if needed
-	cmp 	[esi], byte '+'
-	je .inc_esi
-	cmp 	[esi], byte '-'
-	je .inc_esi
-	cmp 	[esi], byte ' '
-	je .inc_esi
+
 .set_char:
 	testflag(FLAG_ZERO)
 	jnz .set_char_zero
 	mov 	al, ' '
-	.fill_loop
+	.fill_loop               ;add padding to the begining
 	mov 	[edi], al
 	inc 	edi
 	dec 	edx
 	cmp 	edx, 0
 	jne .fill_loop
 	
-	jmp .copy_loop ;add string after padding
+	jmp .copy_loop          ;add string after padding
 
 .set_char_zero
 	mov 	al, '0'
+    cmp     byte [esi], byte ' '
+    je .skip_one_char
+    cmp     byte [esi], byte '-'
+    je .skip_one_char
+    cmp     byte [esi], byte '+'
+    je .skip_one_char
 	jmp .fill_loop
-
+.skip_one_char
+    movsb                   ;add sign befor zeors, if any
+    jmp .fill_loop
 .inc_esi:
 	movsb 					;save sign to out
 	jmp .set_char
@@ -474,8 +462,8 @@ add_number:
 
 
 .print_long:
-	mov 	ecx, [esp] 		;the same prepare code for hw_ltoa and hw_ultoa
-	push 	esi 			;EDI - pointer to converted string !!!!
+	push    ecx             ;save ECX, before function call
+	push 	esi 			;ESI - pointer to converted string 
 	push 	dword [ecx+4]	;EDX
 	push 	dword [ecx]		;EAX
 	
@@ -484,15 +472,15 @@ add_number:
 	jmp .long
 
 .print_int
-	
-	mov 	ecx, [esp]		;the same prepare code for hw_itoa and hw_uitoa
-	push 	esi 			;EDI - pointer to converted string
+	nop
+	push    ecx             ;save ECX, before function call
+	push 	esi 			;ESI - pointer to converted string
 	push 	dword [ecx] 	;EAX
 	
 	testflag(NUM_UNSIGNED)
 	jnz .uint
 	jmp .int
-
+;some copy-paste. I don't know. how avoid it
 .long:
 	call 	hw_ltoa
 	add 	esp, 12
@@ -502,7 +490,7 @@ add_number:
 .ulong
 	call 	hw_ultoa
 	add 	esp, 12
-	pop 	ecx 			;restore pointer
+    pop 	ecx 			;restore pointer
 	add 	ecx, 8			;now ecx point to next number
 	jmp .done
 .int
@@ -522,6 +510,6 @@ add_number:
 	mov 	[edi], byte '%'
 	inc 	edi
 	mov 	[edi], byte 0
-	;pop 	ecx 			;its hack, yep 
+	push 	ecx 			;its hack, yep(in the end we need to have ecx on the top of the stack) 
 	jmp .add_number_end
 ;-------------------------
