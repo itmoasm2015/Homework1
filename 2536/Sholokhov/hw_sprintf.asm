@@ -84,7 +84,7 @@ hw_sprintf:         push ebp
 
 	;;  Sets CONTROL FLAG if it wasn't or prints incorrect control seq if it was. Stores the position of the start of the current contorl sequence in ecx
 .set_C_flag         test bh, CONTROL_FLAG
-                    jnz .print_as_is
+                    jnz .print_percent
 	            mov ecx, esi
                     or  bh, CONTROL_FLAG
                     jmp .next_char
@@ -170,6 +170,13 @@ hw_sprintf:         push ebp
                     xor ecx, ecx
                     xor bh, bh
                     jmp .next_char
+
+.print_percent	    mov byte [edi], '%'
+		    inc edi
+		    xor ecx, ecx
+	            xor bh, bh
+		    jmp .next_char
+
 
 	;; outs one char. Used for writing non-control sequences
 	;; TAKES
