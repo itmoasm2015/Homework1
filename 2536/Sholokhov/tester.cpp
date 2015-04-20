@@ -15,11 +15,11 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "<%12i=%-12u>\n", -1, -1);
     printf("%s", out);
-    hw_sprintf(out, "%llu\n", (long long)-2);
+    hw_sprintf(out, "%ll+010d\n", (long long)-17);
     printf("%s", out);
     hw_sprintf(out, "%lli\n", (long long)-1);
     printf("%s", out);
-    hw_sprintf(out, "%wtf\n", 1, 2, 3, 4);
+     hw_sprintf(out, "%wtf\n", 1, 2, 3, 4);
     printf("%s", out);
     hw_sprintf(out, "50%%\n");
     printf("%s", out);
