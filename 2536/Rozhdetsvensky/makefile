@@ -11,7 +11,7 @@ FLAGS=-f elf32 -g dwarf2
 # Program name
 NAME=hw_sprintf
 
-all: libhw.a test clean
+all: libhw.a test
 
 libhw.a: libhw.o
 	ar rcs libhw.a libhw.o
