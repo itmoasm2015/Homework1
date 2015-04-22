@@ -23,7 +23,7 @@ int main() {
     printf("%s", out);
     hw_sprintf(out, "50%%\n");
     printf("%s", out);
-    hw_sprintf(out, "%%%d\n", 123);
+    hw_sprintf(out, "%+-+-    -+d %         +8ii\n", 123, -4321);
     printf("%s", out);
     hw_sprintf(out, "%-10%=\n");
     printf("%s", out);
