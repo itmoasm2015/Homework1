@@ -161,7 +161,7 @@ align_left:				;if should align left print 0 or ' ' length - lenn times
 	jnz end_alignl
 	mov ecx, [length] 
 	cmp [lenn], ecx
-	jg end_alignl
+	jge end_alignl
 	mov ebx, '0'			; check flags zero
 	cmp [zero], eax
 	jz .ali
