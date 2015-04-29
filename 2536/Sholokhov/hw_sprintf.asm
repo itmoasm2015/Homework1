@@ -90,26 +90,34 @@ hw_sprintf:         push ebp
                     jmp .next_char
 
 	;;  Sets '+' flag if it wasn't or writes incorrect control sequence 
-.set_SF_flag        test bh, SIGN_FULL_FLAG
-                    jnz .print_as_is
-                    or bh, SIGN_FULL_FLAG
+.set_SF_flag        cmp bh, 32
+                    jge .print_as_is
+		    cmp edx, 0
+	            jne .print_as_is
+		    or bh, SIGN_FULL_FLAG
                     jmp .next_char
 
 	;; -//- for ' ' flag
-.set_OM_flag        test bh, ONLY_MINUS_FLAG
-                    jnz .print_as_is
-                    or bh, ONLY_MINUS_FLAG
+.set_OM_flag        cmp bh, 32
+                    jge .print_as_is
+                    cmp edx, 0
+	            jne	.print_as_is
+		    or bh, ONLY_MINUS_FLAG
                     jmp .next_char
 	
 	;; -//- for '-' flag
-.set_LA_flag        test bh, LEFT_ALIGN_FLAG
-                    jnz .print_as_is
+.set_LA_flag        cmp bh, 32
+                    jge .print_as_is
+		    cmp edx, 0
+	            jne .print_as_is
                     or bh, LEFT_ALIGN_FLAG
                     jmp .next_char
 
 	;; -//- for '0' flag
-.set_FZ_flag        test bh, FILL_ZERO_FLAG
-                    jnz .print_as_is
+.set_FZ_flag        cmp bh, 32
+		    jge .print_as_is
+	            cmp edx, 0
+                    jne .print_as_is
                     or bh, FILL_ZERO_FLAG
                     jmp .next_char
 
