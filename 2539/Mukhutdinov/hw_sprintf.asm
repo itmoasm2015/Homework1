@@ -61,7 +61,7 @@
               JCFLAG z, %1, %2
 %endmacro
 
-global hw_sprintf, hw_ntoa
+global hw_sprintf, hw_ntoa, _hw_sprintf, _hw_ntoa
 
 section .bss
 BYTE_STACK:   resb  24              ; Temp buffer to store undigned number representation (guaranteed to fit for any long long)
@@ -80,6 +80,7 @@ section .text
 ;; char* out -- output string address
 ;; char const* format -- format string address
 ;; ... -- rest of parameters (ints or long longs)
+_hw_sprintf:
 hw_sprintf:
               CDECL_ENTER 0, 0
               mov   edi, [ebp+20]   ; output string
@@ -231,6 +232,7 @@ __parse_sequence:
 ;;
 ;; Returns:
 ;; Address of byte right after printed string (on the null-termitanor)
+_hw_ntoa:
 hw_ntoa:
               CDECL_ENTER 0, 0
               mov   edx, [ebp+20]   ; number pointer

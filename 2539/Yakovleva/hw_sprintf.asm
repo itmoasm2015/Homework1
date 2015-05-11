@@ -15,12 +15,12 @@ hw_sprintf:
 	push edi
 	push esi
 	push ebx
-	mov ecx, [esp + 20]		; add pointer to out to out
+	mov ecx, [esp + 20]		; add out pointer to out
 	mov [myout], ecx		;
-	mov edi, [esp + 24]		; add pointer to format to edi
+	mov edi, [esp + 24]		; add format pointer to edi
 	mov esi, esp			;
 	add esi, 28			; add pointer to current parameter
-	jmp print_str
+	jmp parse_str
 endall:
 	pop ebx
 	pop esi
@@ -28,36 +28,41 @@ endall:
 	pop ebp
 	ret
 
-print_str:
+; parse string
+; if cureent symbol is %, go to parse type
+parse_str:
 	mov byte al, [edi]		; put current symbol to al
-	mov ebx, 0			;
-	mov [sign], ebx			; set fields zero
-	mov [space], ebx		;
-	mov [minus], ebx		;
-	mov [zero], ebx			;
-	mov [length], ebx		;
-	mov [lenn], ebx			;
-	mov [per], edi			;
 	cmp byte al, '%'		; if s[i] == %
-	jz parse
-incorrect:
+	jz parse_type
+pr:
 	mov ecx, [myout]		;
 	mov [ecx], byte al		; write to out 1 char
 	mov ecx, 1			;
 	add [myout], ecx		; 
 	add edi, 1			; next char
 n_char:
-	cmp byte al, 0			;if end of string return
-	jnz print_str
+	cmp byte al, 0			; if end of string return
+	jnz parse_str
 	jmp endall 
 
+parse_type:
+	mov ebx, 0			
+	mov [sign], ebx			; set fields zero
+	mov [space], ebx		
+	mov [minus], ebx		
+	mov [zero], ebx			
+	mov [length], ebx		
+	mov [lenn], ebx			
+	mov [per], edi			
+	mov [flag_u], ebx
+	mov [flag_i], ebx
+	mov [flag_d], ebx
+	mov [flag_ll], ebx
 parse:
 	add edi, 1			; next char
 	mov byte al, [edi]		;
 	cmp byte al, 0			; if end of string return
 	jz endall
-	cmp byte al, '%'		; if s[i] == % print %
-	jz incorrect
 	cmp byte al, '+'		;
 	jz set_sign			; set flag +
 	cmp byte al, ' '		;
@@ -79,9 +84,12 @@ types:
 	jz parameter_i			; type is i
 	cmp byte al, 'l'
 	jz parameter_ll			; type is ll
+	cmp byte al, '%'
+	jz parametr_pr			; type is %
+incorrect:
 	mov edi, [per]			; if incorrect flags and type print expression
 	mov byte al, [edi]
-	jmp incorrect
+	jmp pr
 
 set_sign:
 	mov ebx, 1
@@ -107,40 +115,40 @@ set_length:
 	mov ebx, 0
 	mov [length], ebx		; set length
 	mov byte cl, byte al
-sl:
+.sl:
 	sub byte cl, '0'
 	mov eax, [length]
 	mov ebx, 10			; multiply ebx to 10
 	mul ebx
 	mov [length], eax
-	add [length], byte cl		; add lenght next digit
+	add [length], byte cl		; add length next digit
 	add edi, 1
 	mov byte cl, [edi]
 	cmp byte cl, '0'
-	jl esl
+	jl .esl
 	cmp byte cl, '9'
-	jle sl
-esl:
+	jle .sl
+.esl:
 	sub edi, 1
 	jmp parse
 	 	 
 print_sign:
 	mov ebx, 1
-	cmp [sign], ebx			; if no need in sign return
+	cmp [sign], ebx			; if no need sign return
 	jnz end_ps
 	mov eax, [esi]
 	mov ecx, '-'			; sign is -
 	cmp eax, 0
-	jl add_sign
+	jl .add_sign
 	mov ecx, '+'			; if eax > 0 sign is +
-add_sign:
+.add_sign:
 	push ecx
-	add [lenn], ebx
+	add [lenn], ebx			; add 1 to lenn, because we printed sign
 	jmp end_ps
 
-print_space:				; if need a space push space to stack
+print_space:				; if need a spaces push it to stack
 	mov ebx, 1
-	cmp [sign], ebx
+	cmp [space], ebx
 	jz end_psp
 	mov ecx, ' '
 	push ecx
@@ -153,13 +161,13 @@ align_left:				;if should align left print 0 or ' ' length - lenn times
 	jnz end_alignl
 	mov ecx, [length] 
 	cmp [lenn], ecx
-	jg end_alignl
-	mov ebx, '0'
+	jge end_alignl
+	mov ebx, '0'			; check flags zero
 	cmp [zero], eax
-	jz ali
+	jz .ali
 	mov ebx, ' '
-ali:
-	mov eax, [myout]
+.ali:
+	mov eax, [myout]		; print space or zero
 	mov [eax], ebx
 	mov ebx, 1
 	add [myout], ebx
@@ -181,10 +189,13 @@ align_right:				;if should align right push ' ' to stack length - lenn times
 print_number:
 	push -1				;push start symbol to stack
 	mov eax, [esi]
+	mov ebx, 1
+	cmp [flag_u], ebx		; if type is u, we shouldn't think about sign
+	jz positive
 	cmp eax, 0
 	jg positive
 	mov ebx, 1
-	mov [sign], ebx
+	mov [sign], ebx			; set sign = 1, it's equal '-'
 	neg eax				; take absolutely value
 positive:	
 	mov ebx, 10
@@ -200,7 +211,13 @@ parse_number:				; parsing number
 	mov edx, eax
 	jmp parse_number
 print_num:				; print number from stack
-	mov ebx, 1			;if need in print space or sign do it
+	mov ebx, 0
+	cmp [length], ebx
+	jnz .len_not_zero
+	mov ebx, [lenn]
+	mov [length], ebx
+.len_not_zero:
+	mov ebx, 1			; if need to print spaces or sign do it
 	cmp [space], ebx
 	jz print_space
 end_psp:
@@ -215,65 +232,96 @@ end_alignr:				; while current char from stack not equal -1, print it
 	mov [eax], ecx
 	mov eax, 1
 	add [myout], eax
-	jmp end_ps
+	jmp end_alignr
 end_print_num:
-	jmp align_left
+	jmp align_left			; check align left
 end_alignl:				; move esi to next parameter
 	add esi, 4	
 	jmp n_char
 
 parameter_d:				; parse int
 	add edi, 1
-	mov eax, [esi]
-	jmp print_number
+	mov eax, 1
+	mov [flag_d], eax		; set flag int
+	cmp [flag_ll], eax		; parse long long int, if flag_ll = 1
+	jz parse_ll
+	jmp print_number		; go to parse int
 	
 parameter_u:				; parse unsigned int
 	add edi, 1
-	mov eax, [esi]
-	jmp print_number
+	mov eax, 1
+	mov [flag_u], eax
+	cmp [flag_ll], eax		; parse unsigned long long int, if flag_ll = 1
+	jz parse_ll
+	jmp print_number		; go to parse unsigned int
 	
 parameter_i:				; parse int
 	add edi, 1
-	mov eax, [esi]
-	jmp print_number
+	mov eax, 1
+	mov [flag_i], eax
+	cmp [flag_ll], eax		; parse long long int, if flag_ll = 1
+	jz parse_ll
+	jmp print_number		; go to parse int
 
-parameter_ll:				; parse long long
+parameter_ll:
 	add edi, 2
-	mov eax, [esi]
-	add esi, 4
-	mov edx, [esi]	
-	mov ecx, 1000000000
-	div ecx
-	mov ecx, eax
-	mov eax, edx	
-	cmp eax, 0
-	jg positivel
-	neg eax
-positivel:	
-	push -1
-	mov ebx, 10
-parse_numberl:
-	mov edx, 0
-	div ebx
-	push edx
-	cmp eax, 0
-	jz pnl
-	mov edx, eax
-	jmp parse_numberl
-pnl:
-	mov eax, ecx
-	mov ecx, 0
-	cmp eax, 0
-	jnz parse_numberl
-	mov eax, [esi]
-	cmp eax, 0
-	jg print_num
-	mov ecx, '-'
-	mov eax, [myout]
-	mov [eax], ecx
+	mov eax, 1
+	mov [flag_ll], eax		; set long long flag = 1
+	mov byte al, [edi]
+	jmp types			; go to read type
+
+parametr_pr:
+	add edi, 1
+	mov eax, 0
+	mov byte al, '%'		; print type %
+	mov ebx, [myout]
+	mov [ebx], eax
 	mov eax, 1
 	add [myout], eax
-	jmp print_num
+	jmp parse_str
+	
+	
+parse_ll:				; parse long long
+	mov eax, 1
+	mov ecx, [esi]
+	add esi, 4
+	mov ebx, [esi]
+	cmp [flag_u], eax		; if we parse unsigned type, we won't want to think about sign
+	jz .positivel2
+	cmp ecx, 0
+	jge .positivel1
+	neg ecx				; take absolutely value	
+	mov eax, 1
+	mov [sign], eax
+.positivel1:
+	cmp ebx, 0
+	jge .positivel2
+	neg ebx
+	sub ebx, 1
+.positivel2:	
+	push -1	
+.parse_numberl:				; high:low = ebx:ecx
+	mov eax, ecx			; if high part equal 0, parse int
+	cmp ebx, 0
+	jz .pnl
+	mov eax, ebx
+	mov edx, 0
+	mov ebx, 10
+	div ebx				; divide 0:high to 10
+	mov [tmp], eax			; save eax = 0:high / 10
+	mov eax, ecx
+	div ebx				; divide edx:low to 10
+	add edx, '0'
+	push edx			; push current symbol (edx = edx:low % 10) to stack
+	mov ebx, 1
+	add [lenn], ebx			; lenn++
+	mov ebx, [tmp]
+	mov ecx, eax			; set high = 0:high / 10, low = ((0:high % 10):low) / 10
+	jmp .parse_numberl
+.pnl:
+	mov ecx, 0
+	mov ebx, 10
+	jmp parse_number		; if high part equal 0, parse int
 	
 ; OUT - pointer to out 4 bit
 section .bss
@@ -285,3 +333,8 @@ minus:		resq 1
 length:		resq 1
 lenn:		resq 1
 per:		resq 1
+tmp:		resq 1
+flag_u:		resq 1
+flag_i:		resq 1
+flag_d:		resq 1
+flag_ll:	resq 1
