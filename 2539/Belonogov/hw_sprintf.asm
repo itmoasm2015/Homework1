@@ -38,7 +38,7 @@ section .text
             ;mov eax, [format] 
             ;mov ecx, [curFormat];
             initFormat
-            cmp [edx + ecx], dword 0   ; if curFromat == /0  => end of string
+            cmp [edx + ecx], byte 0   ; if curFromat == /0  => end of string
             je .mainLoopEnd            ; go to finish
             cmp [edx + ecx], byte '%'  ;
             je .parseToken 
@@ -124,8 +124,35 @@ section .text
                         call writeSpace
                         jmp .overRightOrder
                     .rightOrder
+                        mov edi, [curOutput]      ; save position
+                        mov esi, [spaceSize]
                         call writeSpace
                         call writeBuffer
+                        mov [spaceSize], esi
+                        mov eax, [flags]
+                        and eax, FLAG_ZERO
+                        cmp eax, 0  
+                        je .notSwap
+                            xor ecx, ecx
+                            mov eax, [flags]
+                            and eax, FLAG_PLUS
+                            add ecx, eax 
+
+                            mov eax, [flags]
+                            and eax, FLAG_SPACE
+                            add ecx, eax
+                            
+                            cmp ecx, 0
+                            je .notSwap
+                                mov edx, [output]
+                                mov al, [edx + edi] 
+                                mov esi, edi
+                                add esi, [spaceSize]  
+                                mov cl, [edx + esi]
+                                mov [edx + esi], al
+                                mov [edx + edi], cl
+                       
+                        .notSwap  
                     .overRightOrder
                 .overOk
             .overParseToken 
@@ -134,6 +161,10 @@ section .text
         jmp .mainLoop 
         .mainLoopEnd 
 
+
+        initOutput
+        mov [edx + ecx], byte 0
+        inc dword [curOutput]
 
         pop ebx
         pop ebp
