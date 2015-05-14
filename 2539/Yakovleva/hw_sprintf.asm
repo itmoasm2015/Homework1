@@ -288,16 +288,14 @@ parse_ll:				; parse long long
 	mov ebx, [esi]
 	cmp [flag_u], eax		; if we parse unsigned type, we won't want to think about sign
 	jz .positivel2
-	cmp ecx, 0
-	jge .positivel1
-	neg ecx				; take absolutely value	
-	mov eax, 1
-	mov [sign], eax
-.positivel1:
 	cmp ebx, 0
 	jge .positivel2
-	neg ebx
-	sub ebx, 1
+	not ecx				; take absolutely value	
+	mov eax, 1
+	mov [sign], eax
+	not ebx
+	add ecx, 1
+	adc ebx, 0
 .positivel2:	
 	push -1	
 .parse_numberl:				; high:low = ebx:ecx
