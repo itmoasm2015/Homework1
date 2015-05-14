@@ -162,12 +162,8 @@ align_left:				;if should align left print 0 or ' ' length - lenn times
 	mov ecx, [length] 
 	cmp [lenn], ecx
 	jge end_alignl
-	mov ebx, '0'			; check flags zero
-	cmp [zero], eax
-	jz .ali
 	mov ebx, ' '
-.ali:
-	mov eax, [myout]		; print space or zero
+	mov eax, [myout]		; print space
 	mov [eax], ebx
 	mov ebx, 1
 	add [myout], ebx
@@ -181,7 +177,11 @@ align_right:				;if should align right push ' ' to stack length - lenn times
 	mov ecx, [length] 
 	cmp [lenn], ecx
 	jge end_alignr
-	mov ebx, ' '
+	mov ebx, '0'
+	cmp [zero], eax			; check flags zero
+	jz .ali
+	mov ebx, ' '			; print space
+.ali:
 	push ebx
 	add [lenn], eax
 	jmp align_right 

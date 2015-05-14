@@ -20,6 +20,10 @@ int main() {
 //    printf("RESULT=!%s!\n", out);
 //    "  +51"
 //Test failed: "%lld" -> expected "1152921504606846975", got "+1152921500311879681"
+
+    hw_sprintf(out, "%-08d", 123);
+    printf("RESULT=!%s!\n", out);
+
     hw_sprintf(out, "%lld", -1152921504606846975);
     printf("RESULT=!%s!\n", out);
 
