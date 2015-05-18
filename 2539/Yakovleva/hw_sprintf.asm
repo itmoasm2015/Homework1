@@ -71,10 +71,14 @@ parse:
 	jz set_minus			; set flag -
 	cmp byte al, '0'		;
 	jz set_zero			; set flag 0
+width:
 	cmp byte al, '1'		;
-	jl types			
+	jl llsize			
 	cmp byte al, '9'		;
 	jle set_length			; set length
+llsize:
+	cmp byte al, 'l'
+	jz parameter_ll			; type is ll
 types:
 	cmp byte al, 'd'
 	jz parameter_d			; type is d
@@ -82,8 +86,6 @@ types:
 	jz parameter_u			; type is u
 	cmp byte al, 'i'
 	jz parameter_i			; type is i
-	cmp byte al, 'l'
-	jz parameter_ll			; type is ll
 	cmp byte al, '%'
 	jz parametr_pr			; type is %
 incorrect:
@@ -129,8 +131,9 @@ set_length:
 	cmp byte cl, '9'
 	jle .sl
 .esl:
-	sub edi, 1
-	jmp parse
+;	sub edi, 1
+	mov byte al, [edi]
+	jmp llsize
 	 	 
 print_sign:
 	mov ebx, 1
