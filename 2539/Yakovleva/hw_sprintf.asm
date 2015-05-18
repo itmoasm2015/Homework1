@@ -58,6 +58,7 @@ parse_type:
 	mov [flag_i], ebx
 	mov [flag_d], ebx
 	mov [flag_ll], ebx
+	mov [sm], ebx
 parse:
 	add edi, 1			; next char
 	mov byte al, [edi]		;
@@ -146,13 +147,16 @@ print_sign:
 	mov ecx, '+'			; if eax > 0 sign is +
 .add_sign:
 	push ecx
+	mov ebx, 1
 	add [lenn], ebx			; add 1 to lenn, because we printed sign
+	mov ebx, 0
+	mov [space], ebx
 	jmp end_ps
 
 print_space:				; if need a spaces push it to stack
 	mov ebx, 1
 	cmp [space], ebx
-	jz end_psp
+	jnz end_psp
 	mov ecx, ' '
 	push ecx
 	add [lenn], ebx
@@ -187,7 +191,7 @@ align_right:				;if should align right push ' ' to stack length - lenn times
 .ali:
 	push ebx
 	add [lenn], eax
-	jmp align_right 
+	jmp align_right
 
 print_number:
 	push -1				;push start symbol to stack
@@ -196,7 +200,7 @@ print_number:
 	cmp [flag_u], ebx		; if type is u, we shouldn't think about sign
 	jz positive
 	cmp eax, 0
-	jg positive
+	jge positive
 	mov ebx, 1
 	mov [sign], ebx			; set sign = 1, it's equal '-'
 	neg eax				; take absolutely value
@@ -221,13 +225,41 @@ print_num:				; print number from stack
 	mov [length], ebx
 .len_not_zero:
 	mov ebx, 1			; if need to print spaces or sign do it
-	cmp [space], ebx
-	jz print_space
-end_psp:
+	cmp [flag_u], ebx
+	jnz .ss
+	mov ebx, 0			; if type is unsigned no need to print spase or sign
+	mov [space], ebx
+	mov [sign], ebx
+.ss:
+	mov ebx, 1
+	cmp [zero], ebx			; if should align ' ' push sign and spacebefore
+	jnz pps
+	mov ebx, [sign]
+	add ebx, [space]
+	cmp ebx, 1
+	jle .ss3
+	mov ebx, 1
+.ss3:
+	add [lenn], ebx			; if should align '0' push zeros before sign and spaces
+	mov [tmp], ebx			; remember count of position to sign and space
+	mov ecx, 1
+	mov [sm], ecx
+	jmp align_right			
+retl:
+	mov ebx, [tmp]
+	sub [lenn], ebx			; restore positions to sign ans space
+pps:
 	jmp print_sign
-end_ps:					; align right
+end_ps:
+	jmp print_space
+end_psp:
+	mov ecx, 0
+	mov [sm], ecx
 	jmp align_right
 end_alignr:				; while current char from stack not equal -1, print it
+	mov ecx, 1
+	cmp [sm], ecx
+	jz retl
 	pop ecx
 	cmp ecx, -1
 	jz end_print_num
@@ -267,7 +299,11 @@ parameter_i:				; parse int
 	jmp print_number		; go to parse int
 
 parameter_ll:
-	add edi, 2
+	add edi, 1
+	mov byte al, [edi]
+	cmp byte al, 'l'
+	jnz incorrect
+	add edi, 1
 	mov eax, 1
 	mov [flag_ll], eax		; set long long flag = 1
 	mov byte al, [edi]
@@ -339,3 +375,4 @@ flag_u:		resq 1
 flag_i:		resq 1
 flag_d:		resq 1
 flag_ll:	resq 1
+sm:		resq 1
