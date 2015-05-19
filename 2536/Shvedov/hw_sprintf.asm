@@ -135,17 +135,17 @@ ullformatnumber:
         cmp eax, 0
         jge ..operation_plus_print
 ..operation_minus_print:
-or bl, 1 ; set the flag,in this case the sign is printed anyway
-mov byte [edi], '-'
-inc edi
-; after print the sign,we should negate the number then and print as a positive one
-not eax
-inc eax
-test bl, 16
-jz .aline ; edx is already zero anyway
-not edx
-adc edx, 0
-jmp .aline
+        or bl, 1 ; set the flag,in this case the sign is printed anyway
+        mov byte [edi], '-'
+        inc edi
+        ; after print the sign,we should negate the number then and print as a positive one
+        not eax
+        inc eax
+        test bl, 16
+        jz .aline ; edx is already zero anyway
+        not edx
+        adc edx, 0
+        jmp .aline
 ..operation_plus_print:
         test bl,1
         jz ..operation_space_print ; check for space sign
