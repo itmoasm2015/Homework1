@@ -63,7 +63,7 @@ parse:
 	add edi, 1			; next char
 	mov byte al, [edi]		;
 	cmp byte al, 0			; if end of string return
-	jz endall
+	jz incorrect
 	cmp byte al, '+'		;
 	jz set_sign			; set flag +
 	cmp byte al, ' '		;

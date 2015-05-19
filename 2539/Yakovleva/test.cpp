@@ -153,7 +153,7 @@ int main() {
     printf("START TEST\n");
 //	if (testInt()) {
 //		if (testLL()) {
-			testParam();
+//			testParam();
 //		}
 //	}
 //    hw_sprintf(out, "Hello world !%7d!% 10d!\n", 12567, -4234853);
@@ -171,6 +171,9 @@ int main() {
 //    printf("RESULT=!%s!\n", out);
 //    "  +51"
 //Test failed: "%lld" -> expected "1152921504606846975", got "+1152921500311879681"
+    hw_sprintf(out, "%  ", 10);
+    printf("RESULT=!%s!\n", out);
+
     hw_sprintf(out, "% l%d", 123);
     printf("RESULT=!%s!\n", out);
 
