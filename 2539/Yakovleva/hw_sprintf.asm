@@ -225,13 +225,6 @@ print_num:				; print number from stack
 	mov [length], ebx
 .len_not_zero:
 	mov ebx, 1			; if need to print spaces or sign do it
-	cmp [flag_u], ebx
-	jnz .ss
-	mov ebx, 0			; if type is unsigned no need to print spase or sign
-	mov [space], ebx
-	mov [sign], ebx
-.ss:
-	mov ebx, 1
 	cmp [zero], ebx			; if should align ' ' push sign and spacebefore
 	jnz pps
 	mov ebx, [sign]

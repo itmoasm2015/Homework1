@@ -132,19 +132,20 @@ bool testParam() {
 	//width
 	//ll
 	//udi%
-	for (int i = -10; i < 10; i++) {
+	int num = 12345;
+	//for (int i = -10; i < 10; i++) {
 		for (int j = 0; j < 16; j++) {
 			for (int k = 1; k < 100; k++) {
 				for (int h = 0; h < 2; h++) {
-					for (int l = 0; l < 4; l++) {
-	//					if (!tp(j, k, h, l, i)) return false;
-						if (!itp(j, k, h, l, i)) return false;
+					for (int l = 1; l < 4; l++) {
+						if (!tp(j, k, h, l, num)) return false;
+//						if (!itp(j, k, h, l, i)) return false;
 					}
 				}
 			}
 		}
 
-	}
+	//}
 	return true;
 }
 
