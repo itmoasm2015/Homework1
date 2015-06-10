@@ -40,7 +40,102 @@ ulltodec:
             pop edi
             ret
 
-            
+; edx:eax/ten
+; remainder in ecx
+div:  
+    mov ecx, eax
+    mov eax, edx
+    xor edx, edx
+    div ebx
+    xchg eax, ecx
+    div ebx
+    xchg ecx, edx
+    ret
+
+
+;Format number base on record in $esi
+format:
+    push ebp
+    mov ebp, esp
+    push esi 
+    ;needed if malformed sequence
+    push edi 
+    push ebx
+    xor ebx, ebx
+    xor ecx, ecx
+    xor eax, eax
+    
+    ;mask will be in bl
+    .flags: 
+        lodsb
+        cmp al, '+'
+        je ..@add
+        cmp al, ' '
+        je ..@space
+        cmp al, '-'
+        je ..@sub
+        cmp al, '0'
+        jne .minWidth
+        or bl, ZERO_ALIGN
+        jmp .flags
+        
+         ..@sub:
+                or bl, ALIGN_LEFT
+                jmp .flags
+         
+         ..@space:
+                or bl, SPACE
+                jmp .flags
+                       
+        ..@add:
+                or bl, PLUS
+                jmp .flags
+    
+    ; minimum width will be in ecx            
+    .minWidth: 
+        cmp al, '9'
+        jg .size
+        cmp al, '0'
+        jl .size
+        sub al, '0'
+        shl ecx, 1 
+        mov edx, ecx
+        shl edx, 2
+        add ecx, eax
+        add ecx, edx
+        lodsb
+        jmp .minWidth
+    
+    ; ll prefix ?    
+    .size: 
+        cmp al, 'l'
+        jne .type
+        lodsb
+        cmp al, 'l'
+        jne .invalidSeq
+        or bl, LL
+        lodsb
+    
+    ; get type        
+    .type:
+        cmp al, '%'
+        jne ..@number
+        stosb
+        mov byte [edi], 0
+        jmp .exit
+        
+        ..@number
+            mov bh, al
+            mov eax, [esp]    
+            lea edx, [eax + 4] 
+            ; for loading lower part of number
+            mov eax, [eax]    
+            test bl, LL
+            jz ..@notL
+            ; the higher part is on the stack
+            mov edx, [edx] 
+            jmp ..@checkSigned      
+                         
 global hw_sprintf
 
 hw_sprintf:
