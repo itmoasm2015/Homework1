@@ -11,7 +11,7 @@ global hw_sprintf
 %define set_flag(f) or ebx, f
 %define test_flag(f) test ebx, f
 
-%macro longdiv 0 ; (c) Vinogradov (i'm sorry)
+%macro longdiv 0 ; 
 ;; divides edx:eax by ebx, stores the quotient in esi:eax and the remainder in edx
 ;; division is based on http://www.df.lth.se/~john_e/gems/gem0033.html
 ;; esi should be equal to edx in the beginning
@@ -26,6 +26,8 @@ div ebx	; hi/d (hi%d:lo)%d (hi%d:lo)/d
 %endmacro
 
 section .text
+
+
 hw_sprintf:
   push ebp
   push esi
@@ -58,9 +60,8 @@ hw_sprintf:
   ret
 
 .go_to_parse_flags:
-  push esi ; save position (need if format sequence is invalid
-  cmp byte [esi+1], '%'
-  je .go_to_print_percent_sign
+  push esi ; save position (need if format sequence is invalid)
+  
   jmp .parse_flags
   
 .parse_flags:
@@ -93,56 +94,34 @@ hw_sprintf:
   set_flag(zero_padding)
   jmp .parse_flags
   
-; print '%' and return to reading format string
-.go_to_print_percent_sign:
-  pop esi
-  inc esi
-.print_percent_sign:
-  mov al, '%'
-  mov [edi], al
-  inc esi
-  inc edi
-  jmp .get_next
+
   
 
 .go_to_parse_width:
-  xor ecx, ecx
-  mov eax, 1 ; because if last digit of width is zero, we can get a problem
+  cmp byte [esi], '0'
+  jb .get_size
+  cmp byte [esi], '9'
+  ja .get_size
+  xor eax, eax
+  xor edx, edx
   jmp .parse_width
     
   
 .parse_width:
   ; finish if symbol is not digit
-  cmp byte [esi], '0'
-  jb .go_to_get_width
-  cmp byte [esi], '9'
-  ja .go_to_get_width
-  inc ecx ; count digits in number
-  inc esi 
-  jmp .parse_width
-  
-.go_to_get_width:
-  push esi ; save current position in format string // DONT FORGET TO POP
-  xor edx, edx
-  jmp .get_width
-  
-.get_width:
-  cmp ecx, 0 ;while counter!=0 read width
-  je .get_size
-  dec esi
-  dec ecx
-  ;read one digit of width
   mov dl, byte [esi]
   sub dl, 48
   add eax, edx
-  cmp ecx, 0 
-  je .get_size
+  inc esi 
+  cmp byte [esi], '0'
+  jb .get_size
+  cmp byte [esi], '9'
+  ja .get_size
   imul eax, 10
-  jmp .get_width
+  jmp .parse_width
+  
   
 .get_size:
-  dec eax ; because eax = 1 at start of parse_width
-  pop esi ; get saved position in format string
   ; check if "long long"
   cmp word [esi], 'll'
   je .set_long_long
@@ -161,18 +140,32 @@ hw_sprintf:
   je .parse_arg
   cmp byte [esi], 'i'
   je .parse_arg
+  cmp byte [esi], '%'
+  je .go_to_print_percent_sign
   jmp .illegal_format_sequence
+  
+.set_unsigned:
+  set_flag(unsigned)
+  jmp .parse_arg
+  
+; print '%' and return to reading format string
+.go_to_print_percent_sign:
+  pop edx
+  xor ebx, ebx
+  xor edx, edx
+.print_percent_sign:
+  mov al, '%'
+  mov [edi], al
+  inc esi
+  inc edi
+  jmp .get_next
 
 ; if sequnce is illegal, print percent and go to next symbol
 .illegal_format_sequence:
   pop esi
   jmp .print_percent_sign
   
-.set_unsigned:
-  set_flag(unsigned)
-  jmp .parse_arg
-  
-;eax - width -> esi
+;eax - width (will be saved in memory for some time, because in long long case too many registers required)
 ;ebx - flags
 ;ecx - empty
 ;edx - empty
@@ -180,11 +173,12 @@ hw_sprintf:
   ; delete element from stack, because sequnce is legal
   pop edx ; 
   xor edx, edx ;
-  push esi save esi until best times
+  push esi ;save esi until best times
+  mov [edi],eax ; save width into esi
   ; long long int has another parser
   test_flag(long_long)
   jnz .parse_long_arg
-  mov esi,eax ; save width into esi
+  
   mov eax, [ebp] ; get argument
   add dword ebp, 4 ; go to next argument
   cmp eax, 0
@@ -197,21 +191,23 @@ hw_sprintf:
   jmp .parse_num
   
 .parse_long_arg:
-  mov esi,eax
+  
   mov eax, [ebp] ; get argument
   mov edx, [ebp+4]
   add dword ebp, 8 ; go to next argument
+  ;mov ebp,eax
   test_flag(unsigned)
   jnz .parse_64_num
   test edx, edx
   jge .parse_64_num
   ; else number is negative
   set_flag(is_neg)
-  ; special neg for 64-bit
+  ; special neg for long long
   not eax
   not edx
   add eax, 1
   adc edx, 0
+  
   jmp .parse_64_num
   
 
@@ -228,7 +224,7 @@ hw_sprintf:
   jne .parse_num
   jmp .before_print_number
   
-.parse_64_num: ; MORE REGISTERS FOR GOD OF REGISTERS (it is not working)
+.parse_64_num: ; MORE REGISTERS FOR GOD OF REGISTERS
   push ebx ;save flags
   mov ebx, 10
   longdiv
@@ -241,8 +237,9 @@ hw_sprintf:
   jne .parse_64_num
   jmp .before_print_number
   
-  
 .before_print_number:
+  mov esi, [edi]
+  mov [edi], dword 0
   sub esi, ecx ; find length for padding
   cmp esi, 1 ; if padding is require
   jg .print_padding
@@ -274,26 +271,30 @@ hw_sprintf:
   jmp .print_padding_loop
   
 .print_sign:
-  test_flag(unsigned)
+  test_flag(unsigned) ; unsigned => go to special part
   jnz .unsigned_case
-  test_flag(is_neg)
+  test_flag(is_neg) ; negative => print minus
   jnz .print_minus
-  jmp .print_plus
+  test_flag(plus) ; sign is required always => print plus
+  jnz .print_plus
+  jmp .print_number
   
 .unsigned_case:
-  ; if space required before the number
-  test_flag(space)
-  jnz .print_one_space
-  cmp esi, 1 if we have a space for padding
+  ; if sign is required always => print plus
+  test_flag(plus)
+  jnz .print_plus
+  cmp esi, 1; if we have a space for padding
   je .print_one_padding_symbol
   jmp .print_number
   
 .print_one_padding_symbol:
-  test_flag(zero_padding)
+  test_flag(align_left) ;left aligning is required => padding will be printed later
+  jnz .print_number
+  test_flag(zero_padding) ;print symbol which depends on type of padding
   jnz .print_one_zero
   jmp .print_one_space
   
-  .print_one_zero:
+  .print_one_zero: ;no comments, lol
   mov [edi], byte '0'
   inc edi
   jmp .print_number
@@ -306,15 +307,14 @@ hw_sprintf:
 .print_minus:
   mov [edi], byte '-'
   inc edi
+  dec esi ;sign is taking place of one padding symbol 
   jmp .print_number
   
 .print_plus:
-  test_flag(plus) ; if printig '+' is required
-  jz .print_one_padding_symbol
   mov [edi], byte '+'
   inc edi
+  dec esi; sign is taking place of one padding symbol
   jmp .print_number
-  
   
 .print_number: 
   cmp ecx, 0 ; do while counter > 0
@@ -323,23 +323,24 @@ hw_sprintf:
   
   mov[edi], edx ; print digit
   inc edi ; go to next byte of output buffer
-  dec ecx
+  dec ecx ;counter--
   jmp .print_number
 
 .continue:
-  test_flag(align_left) if number was aligned left, we need a padding after it
+  test_flag(align_left) ;if number was aligned left, we need a padding after it
   jnz .print_right_padding
   jmp .go_to_next
   
 .print_right_padding:
-  cmp esi, 1 ;while we have a space for padding
-  je .go_to_next
+  cmp esi, 0;while we have a space for padding
+  jle .go_to_next
   dec esi
   jmp .print_right_space
   
 .go_to_next:
   pop esi ; get saved esi
   inc esi ; go to next byte of input string
+  xor ebx, ebx
   jmp .get_next
 
   
