@@ -1,15 +1,17 @@
 global hw_sprintf
 
-%define plus 1<<0
-%define align_left 1<<1
-%define space 1<<2
-%define long_long 1<<3
-%define zero_padding 1<<4
-%define unsigned 1<<5
-%define is_neg 1<<6
+; this constants will be used for saving flags
+; flags will be saved in ebx
+%define plus 1<<0 ; '+' in format sequence
+%define align_left 1<<1 ;'-' in format sequence 
+%define space 1<<2 ;' ' in format sequence
+%define long_long 1<<3 ;'ll' in format sequence
+%define zero_padding 1<<4 ;'0' in format sequence
+%define unsigned 1<<5 ;unsigned type
+%define is_neg 1<<6 ;negative argument
 
-%define set_flag(f) or ebx, f
-%define test_flag(f) test ebx, f
+%define set_flag(f) or ebx, f 
+%define test_flag(f) test ebx, f 
 
 %macro longdiv 0 ; 
 ;; divides edx:eax by ebx, stores the quotient in esi:eax and the remainder in edx
