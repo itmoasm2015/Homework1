@@ -98,6 +98,7 @@ hw_sprintf:
   
 
 .go_to_parse_width:
+  ;if symbol is not digit - width wasn't set
   cmp byte [esi], '0'
   jb .get_size
   cmp byte [esi], '9'
@@ -108,16 +109,19 @@ hw_sprintf:
     
   
 .parse_width:
+  
+  mov dl, byte [esi] ; get one digit
+  sub dl, 48 ;convert ASCII-symbol to true digit
+  add eax, edx ;add to width value
+  inc esi ;go to next symbol
+  
   ; finish if symbol is not digit
-  mov dl, byte [esi]
-  sub dl, 48
-  add eax, edx
-  inc esi 
   cmp byte [esi], '0'
   jb .get_size
   cmp byte [esi], '9'
   ja .get_size
-  imul eax, 10
+  
+  imul eax, 10 ; go to next digit number
   jmp .parse_width
   
   
@@ -133,7 +137,7 @@ hw_sprintf:
   jmp .get_type
   
 
-.get_type:
+.get_type: ; last step of parsing format string
   cmp byte [esi], 'u'
   je .set_unsigned
   cmp byte [esi], 'd'
@@ -142,7 +146,7 @@ hw_sprintf:
   je .parse_arg
   cmp byte [esi], '%'
   je .go_to_print_percent_sign
-  jmp .illegal_format_sequence
+  jmp .illegal_format_sequence ; if symbol is not equal to [u/d/i/%], then format sequence is illegal
   
 .set_unsigned:
   set_flag(unsigned)
