@@ -134,7 +134,90 @@ format:
             jz ..@notL
             ; the higher part is on the stack
             mov edx, [edx] 
-            jmp ..@checkSigned      
+            jmp ..@checkSigned  
+            
+        ..@notLong:
+            xor edx, edx 
+            
+        ..@signed?:
+            ; bh contains character
+            cmp bh, 'u'
+            jne .invalidSequence
+            cmp bh, 'd'
+            je .printS
+            cmp bh, 'i'
+            je .printS
+            
+    .printUll:
+        test bl, PLUS
+        jz ..@spaceSignUll
+        mov byte [edi], '+'
+        inc edi
+        jmp .align
+            
+        ..@spaceSignUll:
+            test bl, SPACE
+            jz .align
+            mov byte [edi], ' '
+            inc edi
+            jmp .align
+            
+    .printS:
+        cmp edx, 0
+        jg ..@print+
+        jnz ..@print-
+        cmp eax, 0
+        jge ..@print+
+        
+        ..@print-:
+            or bl, PLUS
+            mov byte [edi], '-'
+            inc edi
+            ;now printing abs of number
+            not eax
+            inc eax
+            test bl, LL
+            jz .align
+            not edx
+            adc edx, 0
+            jmp .align   
+            
+        ..@print+:
+            test bl, PLUS
+            jz ..@printSpace
+            mov byte [edi], '+'
+            inc edi
+            jmp .align
+            
+        ..@printSpace:
+            test bl, SPACE
+            jz .align
+            mov byte [edi], ' '
+            inc edi
+            
+    .align:
+        push ecx
+        push edi
+        push edx
+        push eax
+        call ulltoa
+        add esp, 12
+        pop ecx
+        or bl, PROCEED
+        ;align the number
+        test bl, ALIGN_LEFT
+        jz ..@alignR
+        ;left aligning
+        mov edi, [esp + 4]
+        cld
+        repnz scasb
+        jne .exit
+        dec edi
+        inc ecx
+        mov al, ' '
+        rep stosb
+        mov byte [edi], 0
+        jmp .exit 
                          
 global hw_sprintf
 
