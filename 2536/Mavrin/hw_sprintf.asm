@@ -38,8 +38,10 @@ hw_sprintf:
   mov edi, [esp+20] ; output buffer
   mov esi, [esp+24] ; format string
   lea ebp, [esp+28] ; first argument
-  xor ecx, ecx
+  xor eax, eax
   xor ebx, ebx
+  xor ecx, ecx
+  xor edx, edx
 
   
   
@@ -63,7 +65,7 @@ hw_sprintf:
 
 .go_to_parse_flags:
   push esi ; save position (need if format sequence is invalid)
-  
+  xor eax, eax
   jmp .parse_flags
   
 .parse_flags:
@@ -100,13 +102,13 @@ hw_sprintf:
   
 
 .go_to_parse_width:
+  xor eax, eax
+  xor edx, edx
   ;if symbol is not digit - width wasn't set
   cmp byte [esi], '0'
   jb .get_size
   cmp byte [esi], '9'
   ja .get_size
-  xor eax, eax
-  xor edx, edx
   jmp .parse_width
     
   
@@ -180,7 +182,8 @@ hw_sprintf:
   pop edx ; 
   xor edx, edx ;
   push esi ;save esi until best times
-  mov [edi],eax ; save width into esi
+  xor esi, esi
+  mov [edi],eax ; save width
   ; long long int has another parser
   test_flag(long_long)
   jnz .parse_long_arg
@@ -244,6 +247,7 @@ hw_sprintf:
   jmp .before_print_number
   
 .before_print_number:
+  xor esi, esi
   mov esi, [edi]
   mov [edi], dword 0
   sub esi, ecx ; find length for padding
