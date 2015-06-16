@@ -190,6 +190,8 @@ hw_sprintf:
   
   mov eax, [ebp] ; get argument
   add dword ebp, 4 ; go to next argument
+  test_flag(unsigned)
+  jnz .parse_num
   cmp eax, 0
   jl .set_negative
   jmp .parse_num
@@ -210,6 +212,8 @@ hw_sprintf:
   test edx, edx
   jge .parse_64_num
   ; else number is negative
+  test_flag(unsigned)
+  jnz .parse_64_num
   set_flag(is_neg)
   ; special neg for long long
   not eax
