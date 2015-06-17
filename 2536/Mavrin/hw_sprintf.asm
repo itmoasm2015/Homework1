@@ -92,19 +92,16 @@ hw_sprintf:
   
 .set_left:
   set_flag(align_left)
-  test_flag(zero_padding)
+  test_flag(zero_padding) ; align_left "beats" zero_padding
   jz .parse_flags
   xor ebx, zero_padding
   jmp .parse_flags
   
 .set_zero:
-  test_flag(align_left)
+  test_flag(align_left) ; align_left => no zero_padding
   jnz .parse_flags
   set_flag(zero_padding)
   jmp .parse_flags
-  
-
-  
 
 .go_to_parse_width:
   xor eax, eax
@@ -190,14 +187,18 @@ hw_sprintf:
   xor ecx, ecx
   push esi ;save esi until best times
   xor esi, esi
-  mov ecx, ebx
-  mov bx,ax ; save width (flags : last 16 bit of width)
-  shl ebx, 16
-  mov bx, cx
-  xor ecx, ecx
-  shr eax, 16 
-  mov cx, ax ;(first 16 bit of width:cx)
-  shl ecx, 16
+  
+  ; some unobvious magic to save width(simply because i haven't just one more register)
+  ; EAX - width
+  mov ecx, ebx ; ECX = (0 : flags)
+  mov bx,ax ; EBX = (0 : width[0..15])
+  shl ebx, 16 ; EBX = (width[0..15] : 0)
+  mov bx, cx ; EBX = (width[0..15] : flags)
+  xor ecx, ecx ; ECX = (0 : 0)
+  shr eax, 16  ; EAX = (0 : width[16..31])
+  mov cx, ax ; ECX = (0 : width[16..31])
+  shl ecx, 16 ; ECX = (width[16..31] : counter = 0)
+  
   ; long long int has another parser
   test_flag(long_long)
   jnz .parse_long_arg
@@ -265,17 +266,20 @@ hw_sprintf:
   jmp .before_print_number
   
 .before_print_number:
-
-  
   xor esi, esi
   xor eax, eax
-  mov ax, cx
-  shr ecx, 16
-  mov si, cx
-  shl esi, 16
-  mov edx, ebx
-  shr edx, 16
-  mov si, dx
+  
+  ;some unobvious magic to get saved width
+  ; EBX = (width[0..15] : flags)
+  ; ECX = (width[16..31] : counter)
+  mov ax, cx ;EAX = counter
+  shr ecx, 16 ;ECX = (0 : width[16..31])
+  mov si, cx ;ESI = (0 : width[16..31])
+  shl esi, 16; ESI = (width[16..31] : 0)
+  mov edx, ebx; EDX = (width[0..15] : flags)
+  shr edx, 16; EDX = (0 : width[0..15])
+  mov si, dx; ESI = (width[16..31] : width[0..15]) = WIDTH
+  
   sub esi, eax ; find length for padding
   cmp esi, 1 ; if padding is require
   mov ecx, eax
@@ -290,6 +294,7 @@ hw_sprintf:
   jnz .print_padding
   test_flag(space)
   jz .print_padding
+  ; if space_flag set and sign wasn't reqired - print a space
   mov [edi], byte ' '
   inc edi
   dec esi
@@ -297,7 +302,7 @@ hw_sprintf:
 .print_padding: ; if we should align right, print padding now(else we'll do it later)
   test_flag(align_left)
   jnz .print_sign
-  test_flag(zero_padding)
+  test_flag(zero_padding) ; if (zero_padding) sign should be first symbol
   jnz .print_sign_first
   jmp .print_padding_loop
   

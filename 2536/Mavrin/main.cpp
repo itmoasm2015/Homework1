@@ -62,6 +62,7 @@ int main() {
     test("%-%%d");
     test("50%%");
     test("%010000d");
+    test("%4d%8d%-8d");
     return 0;
 }
 
