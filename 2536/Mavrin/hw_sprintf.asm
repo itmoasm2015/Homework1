@@ -162,9 +162,9 @@ hw_sprintf:
 ; print '%' and return to reading format string
 .go_to_print_percent_sign:
   pop edx
-  xor ebx, ebx
   xor edx, edx
 .print_percent_sign:
+  xor ebx, ebx
   mov al, '%'
   mov [edi], al
   inc esi
