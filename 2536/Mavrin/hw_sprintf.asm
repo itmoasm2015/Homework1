@@ -10,8 +10,8 @@ global hw_sprintf
 %define unsigned 1<<5 ;unsigned type
 %define is_neg 1<<6 ;negative argument
 
-%define set_flag(f) or ebx, f 
-%define test_flag(f) test ebx, f 
+%define set_flag(f) or bx, f 
+%define test_flag(f) test bx, f 
 
 %macro longdiv 0 ; 
 ;; divides edx:eax by ebx, stores the quotient in esi:eax and the remainder in edx
@@ -92,9 +92,14 @@ hw_sprintf:
   
 .set_left:
   set_flag(align_left)
+  test_flag(zero_padding)
+  jz .parse_flags
+  xor ebx, zero_padding
   jmp .parse_flags
   
 .set_zero:
+  test_flag(align_left)
+  jnz .parse_flags
   set_flag(zero_padding)
   jmp .parse_flags
   
@@ -106,9 +111,9 @@ hw_sprintf:
   xor edx, edx
   ;if symbol is not digit - width wasn't set
   cmp byte [esi], '0'
-  jb .get_size
+  jl .get_size
   cmp byte [esi], '9'
-  ja .get_size
+  jg .get_size
   jmp .parse_width
     
   
@@ -121,15 +126,16 @@ hw_sprintf:
   
   ; finish if symbol is not digit
   cmp byte [esi], '0'
-  jb .get_size
+  jl .get_size
   cmp byte [esi], '9'
-  ja .get_size
-  
-  imul eax, 10 ; go to next digit number
+  jg .get_size
+  mov ecx, 10
+  mul ecx ; go to next digit number
   jmp .parse_width
   
   
 .get_size:
+  xor ecx,ecx
   ; check if "long long"
   cmp word [esi], 'll'
   je .set_long_long
@@ -181,9 +187,17 @@ hw_sprintf:
   ; delete element from stack, because sequnce is legal
   pop edx ; 
   xor edx, edx ;
+  xor ecx, ecx
   push esi ;save esi until best times
   xor esi, esi
-  mov [edi],eax ; save width
+  mov ecx, ebx
+  mov bx,ax ; save width (flags : last 16 bit of width)
+  shl ebx, 16
+  mov bx, cx
+  xor ecx, ecx
+  shr eax, 16 
+  mov cx, ax ;(first 16 bit of width:cx)
+  shl ecx, 16
   ; long long int has another parser
   test_flag(long_long)
   jnz .parse_long_arg
@@ -232,7 +246,7 @@ hw_sprintf:
   pop esi
   add edx, 48 ; get code of digit in ASCII
   push edx ; save digit because order is upside-down
-  inc ecx 
+  inc cx 
   cmp eax, 0 ; do while eax > 0
   jne .parse_num
   jmp .before_print_number
@@ -245,26 +259,65 @@ hw_sprintf:
   add edx, 48 ; get code of digit in ASCII
   push edx ; save digit because order is upside-down
   xchg edx, esi ; return to format edx:eax
-  inc ecx 
+  inc cx 
   cmp eax, 0 ; do while eax > 0
   jne .parse_64_num
   jmp .before_print_number
   
 .before_print_number:
+
+  
   xor esi, esi
-  mov esi, [edi]
-  mov [edi], dword 0
-  sub esi, ecx ; find length for padding
+  xor eax, eax
+  mov ax, cx
+  shr ecx, 16
+  mov si, cx
+  shl esi, 16
+  mov edx, ebx
+  shr edx, 16
+  mov si, dx
+  sub esi, eax ; find length for padding
   cmp esi, 1 ; if padding is require
-  jg .print_padding
+  mov ecx, eax
+  jg .before_print_padding
   jmp .print_sign
   
   
+.before_print_padding:
+  test_flag(plus)
+  jnz .print_padding
+  test_flag(is_neg)
+  jnz .print_padding
+  test_flag(space)
+  jz .print_padding
+  mov [edi], byte ' '
+  inc edi
+  dec esi
   
 .print_padding: ; if we should align right, print padding now(else we'll do it later)
   test_flag(align_left)
   jnz .print_sign
+  test_flag(zero_padding)
+  jnz .print_sign_first
   jmp .print_padding_loop
+  
+.print_sign_first:
+  test_flag(plus)
+  jnz .print_p
+  test_flag(is_neg)
+  jnz .print_m
+  jmp .print_padding_loop
+  .print_p:
+    mov [edi], byte '+'
+    inc edi
+    dec esi
+    jmp .print_padding_loop
+  .print_m:
+    mov [edi], byte '-'
+    inc edi
+    dec esi
+    jmp .print_padding_loop
+  
   
 .print_padding_loop: ; print padding symbol until we can
   cmp esi, 1
@@ -285,12 +338,17 @@ hw_sprintf:
   jmp .print_padding_loop
   
 .print_sign:
+  test_flag(zero_padding)
+  jnz .zero_pad
   test_flag(unsigned) ; unsigned => go to special part
   jnz .unsigned_case
   test_flag(is_neg) ; negative => print minus
   jnz .print_minus
   test_flag(plus) ; sign is required always => print plus
   jnz .print_plus
+  .zero_pad:
+  cmp esi, 1
+  jge .print_one_padding_symbol
   jmp .print_number
   
 .unsigned_case:
@@ -298,10 +356,11 @@ hw_sprintf:
   test_flag(plus)
   jnz .print_plus
   cmp esi, 1; if we have a space for padding
-  je .print_one_padding_symbol
+  jge .print_one_padding_symbol
   jmp .print_number
   
 .print_one_padding_symbol:
+
   test_flag(align_left) ;left aligning is required => padding will be printed later
   jnz .print_number
   test_flag(zero_padding) ;print symbol which depends on type of padding
