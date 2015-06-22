@@ -272,8 +272,8 @@ format:
             
     .exit:
         ;arg is consumed => ebx to the right
-        pop ebx
         mov cl, bl
+        pop ebx
         test cl, PROCEED
         jz ..@jumpBack
         add ebx, 4
