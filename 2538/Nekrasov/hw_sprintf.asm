@@ -94,6 +94,11 @@ hw_sprintf:
 		test	edx, edx
 		jnz	.loop
 	
+	test	eax, ON
+	jz	.exit
+	dec	esi
+	jmp	.wrong_percent
+	
 .exit:
 	xor	eax, eax
 	mov	[edi], eax
@@ -171,7 +176,7 @@ hw_sprintf:
 		or	eax, END1
 		or	eax, END2
 
-		cmp	byte [esi], 'l'
+		cmp	byte [esi + 1], 'l'
 		jne	.wrong_percent
 		inc	esi
 		or	eax, LL
@@ -401,17 +406,25 @@ number_out:
 
 .right_spaces:
 	test	ecx, MINUS
-	jz	.end
+	jz	.increase
 	mov	dl, ' '
 	padout	dl, 2
+
+.increase:
+	test	ecx, LL
+	jz	.increase1
+	jmp	.increase2
+
+.increase1:
+	add	ebp, 4
+	jmp	.end
+
+.increase2:
+	add	ebp, 8
 
 .end:
 	pop	esi
 	xor	eax, eax
 	xor	ebx, ebx
 
-	jmp	hw_sprintf.endloop
-
-
-out64:
 	jmp	hw_sprintf.endloop
