@@ -17,10 +17,32 @@ LL		equ	1 << 7
 
 SIGN		equ	1 << 8
 
+NEGATIVE	equ	1 << 9
+
 %macro setst 1
 	test	eax, END1
 	jnz	.wrong_percent
 	or	eax, %1
+%endmacro
+
+%macro sout 1
+	mov	[edi], %1
+	inc	edi
+	dec	esi
+%endmacro
+
+%macro padout 2
+	xchg	ebx, ecx
+	test	ecx, ecx
+	jz	.end%2
+
+	.loop%2:
+		mov	[edi], %1
+		inc	edi
+		loop	.loop%2
+	
+	.end%2:
+	xchg	ebx, ecx
 %endmacro
 
 hw_sprintf:
@@ -38,6 +60,7 @@ hw_sprintf:
 	jz	.exit
 
 	xor	eax, eax
+	xor	ebx, ebx
 	.loop:
 		cmp	dl, '%'
 		je	.percent
@@ -54,6 +77,8 @@ hw_sprintf:
 		cmp	dl, 'l'
 		je	.long_char
 		cmp	dl, 'd'
+		je	.int_out
+		cmp	dl, 'i'
 		je	.int_out
 		cmp	dl, 'u'
 		je	.uint_out
@@ -123,7 +148,6 @@ hw_sprintf:
 		jnz	.wrong_percent
 		or	eax, END1
 
-		xor	ebx, ebx
 		.width_loop:
 			cmp	dl, '0'
 			jb	.end_width_loop
@@ -155,6 +179,7 @@ hw_sprintf:
 	
 	.wrong_percent:
 		xor	eax, eax
+		xor	ebx, ebx
 		.wrong_loop:
 			mov	dl, [ecx]
 			mov	[edi], dl
@@ -171,17 +196,222 @@ hw_sprintf:
 		mov	[edi], dl
 		inc	edi
 		xor	eax, eax
+		xor	ebx, ebx
 		jmp	.endloop
 	
 	.int_out:
 		or	eax, SIGN
 	.uint_out:
 		test	eax, LL
-		jnz	out64
-		jmp	out32
+		jmp	number_out
 
-out32:
+
+number_out:
+	push	esi
+	push	ebx
+
+	mov	ecx, eax
+
+	test	ecx, LL
+	jz	.check_negative1
+	jmp	.check_negative2
+
+.check_negative1:
+	mov	eax, [ebp]
+	test	ecx, SIGN
+	jz	.length
+	test	eax, eax
+	jns	.length
+	neg	eax
+	mov	[ebp], eax
+	or	ecx, NEGATIVE
+	jmp	.length
+
+.check_negative2:
+	mov	edx, [ebp + 4]
+	mov	eax, [ebp]
+	test	ecx, SIGN
+	jz	.length
+	test	edx, edx
+	jns	.length
+	neg	edx
+	neg	eax
+	sbb	edx, 0
+	mov	[ebp + 4], edx
+	mov	[ebp], eax
+	or	ecx, NEGATIVE
+
+.length:
+	xor	esi, esi
+	test	ecx, LL
+	jz	.length1
+	jmp	.length2
+
+.length1:
+	test	eax, eax
+	jz	.check_first
+	.length_loop1:
+		xor	edx, edx
+		mov	ebx, 10
+		div	ebx
+		inc	esi
+		test	eax, eax
+		jnz	.length_loop1
+	jmp	.check_first
+
+.length2:
+	cmp	edx, 10
+	jb	.length_loop3
+
+	push	eax
+	mov	eax, edx
+	.length_loop2:
+		xor	edx, edx
+		mov	ebx, 10
+		div	ebx
+		inc	esi
+		cmp	eax, 10
+		jnb	.length_loop2
+	mov	edx, eax
+	pop	eax
+
+	test	eax, eax
+	jz	.check_first
+	.length_loop3:
+		mov	ebx, 10
+		div	ebx
+		inc	esi
+		xor	edx, edx
+		test	eax, eax
+		jnz	.length_loop3
+
+
+.check_first:
+	test	ecx, PLUS
+	jnz	.add_first
+	test	ecx, SPACE
+	jnz	.add_first
+	test	ecx, SIGN
+	jz	.padding_width
+	test	ecx, NEGATIVE
+	jnz	.add_first
+	jmp	.padding_width
+	.add_first:
+		inc	esi
+		jmp	.padding_width
+
+.padding_width:
+	pop	ebx
+	sub	ebx, esi
+	test	ebx, ebx
+	js	.overflowed
+	jmp	.left_spaces
+	.overflowed:
+		xor	ebx, ebx
+		jmp	.left_spaces
+
+.left_spaces:
+	test	ecx, MINUS
+	jnz	.sign_out
+	test	ecx, ZERO
+	jnz	.sign_out
+	mov	dl, ' '
+	padout	dl, 0
+
+.sign_out:
+	test	ecx, NEGATIVE
+	jnz	.minus_out
+	test	ecx, PLUS
+	jnz	.plus_out
+	test	ecx, SPACE
+	jnz	.space_out
+	jmp	.zero_padding
+
+	.minus_out:
+		mov	dl, '-'
+		sout	dl
+		jmp	.zero_padding
+	
+	.plus_out:
+		mov	dl, '+'
+		sout	dl
+		jmp	.zero_padding
+	
+	.space_out:
+		mov	dl, ' '
+		sout	dl
+		jmp	.zero_padding
+
+.zero_padding:
+	test	ecx, ZERO
+	jz	.number_out
+	mov	dl, '0'
+	padout	dl, 1
+
+.number_out:
+	lea	edi, [edi + esi]
+	test	ecx, LL
+	jz	.number_out1
+	jmp	.number_out2
+
+.number_out1:
+	push	ebx
+	mov	eax, [ebp]
+	.number_loop1:
+		dec	edi
+		xor	edx, edx
+		mov	ebx, 10
+		div	ebx
+		add	dl, '0'
+		mov	[edi], dl
+		test	eax, eax
+		jnz	.number_loop1
+	lea	edi, [edi + esi]
+	pop	ebx
+	jmp	.right_spaces
+
+.number_out2:
+	push	ebx
+	mov	eax, [ebp + 4]
+	cmp	eax, 10
+	jb	.number_out_continue
+	.number_loop2:
+		dec	edi
+		xor	edx, edx
+		mov	ebx, 10
+		div	ebx
+		add	dl, '0'
+		mov	[edi], dl
+		cmp	eax, 10
+		jnb	.number_loop2
+.number_out_continue:
+	mov	edx, eax
+	mov	eax, [ebp]
+	.number_loop3:
+		dec	edi
+		mov	ebx, 10
+		div	ebx
+		add	dl, '0'
+		mov	[edi], dl
+		xor	edx, edx
+		test	eax, eax
+		jnz	.number_loop3
+	lea	edi, [edi + esi]
+	pop	ebx
+
+.right_spaces:
+	test	ecx, MINUS
+	jz	.end
+	mov	dl, ' '
+	padout	dl, 2
+
+.end:
+	pop	esi
+	xor	eax, eax
+	xor	ebx, ebx
+
 	jmp	hw_sprintf.endloop
+
 
 out64:
 	jmp	hw_sprintf.endloop
