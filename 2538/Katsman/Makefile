@@ -1,23 +1,24 @@
 FLAGS= -f elf32 -g dwarf2
 CFLAGS= -m32 -L. -I../../include
+PROJECT=hw_sprintf
 
 all: test.o libhw.a
 	g++ -o test $(CFLAGS) test.o -lhw
 	rm -f libhw.a
-	rm -f hw_sprintf.o
+	rm -f $(PROJECT).o
 	rm -f test.o
 
 test.o: test.cpp
 	g++ -o $@ $(CFLAGS) -c $<
 
-libhw.a: hw_sprintf.o
+libhw.a: $(PROJECT).o
 	ar rcs $@ $<
 
-hw_sprintf.o: hw_sprintf.asm
+$(PROJECT).o: $(PROJECT).asm
 	yasm -o $@ $(FLAGS) $<
 
 clean:
 	rm -f libhw.a
-	rm -f hw_sprintf.o
+	rm -f $(PROJECT).o
 	rm -f test.o
 	rm -f test
