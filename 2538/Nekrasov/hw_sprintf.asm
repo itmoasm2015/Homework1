@@ -29,40 +29,43 @@ hw_sprintf:
 	push	edi
 	push	ebx
 
+	mov	edi, [esp + 20]
+	mov	esi, [esp + 24]
 	lea	ebp, [esp + 28]
-	mov	edx, [esi]
+	xor	edx, edx
+	mov	dl, byte [esi]
 	test	edx, edx
 	jz	.exit
 
 	xor	eax, eax
 	.loop:
-		cmp	edx, '%'
+		cmp	dl, '%'
 		je	.percent
 		test	eax, eax
 		jz	.free_char
-		cmp	edx, '+'
+		cmp	dl, '+'
 		je	.plus_char
-		cmp	edx, ' '
+		cmp	dl, ' '
 		je	.space_char
-		cmp	edx, '-'
+		cmp	dl, '-'
 		je	.minus_char
-		cmp	edx, '0'
+		cmp	dl, '0'
 		je	.zero_char
-		cmp	edx, 'l'
+		cmp	dl, 'l'
 		je	.long_char
-		cmp	edx, 'd'
+		cmp	dl, 'd'
 		je	.int_out
-		cmp	edx, 'u'
+		cmp	dl, 'u'
 		je	.uint_out
-		cmp	edx, '1'
+		cmp	dl, '1'
 		jb	.wrong_percent
-		cmp	edx, '9'
+		cmp	dl, '9'
 		ja	.wrong_percent
 		jmp	.read_width
 
 	.endloop:
 		inc	esi
-		mov	edx, [esi]
+		mov	dl, byte [esi]
 		test	edx, edx
 		jnz	.loop
 	
@@ -85,7 +88,7 @@ hw_sprintf:
 		jmp	.endloop
 
 	.free_char:
-		mov	[edi], edx
+		mov	[edi], dl
 		inc	edi
 		jmp	.endloop
 	
@@ -122,20 +125,21 @@ hw_sprintf:
 
 		xor	ebx, ebx
 		.width_loop:
-			cmp	edx, '0'
+			cmp	dl, '0'
 			jb	.end_width_loop
-			cmp	edx, '9'
+			cmp	dl, '9'
 			ja	.end_width_loop
-			sub	edx, '0'
+			sub	dl, '0'
 			imul	ebx, 10
 			add	ebx, edx
 			inc	esi
-			mov	edx, [esi]
+			mov	dl, byte [esi]
 			jmp	.width_loop
 		.end_width_loop:
 
 		dec	esi
-		ret
+		mov	dl, byte [esi]
+		jmp	.endloop
 	
 	.long_char:
 		test	eax, END2
@@ -143,26 +147,28 @@ hw_sprintf:
 		or	eax, END1
 		or	eax, END2
 
-		lea	edx, [esi + 1]
-		mov	edx, [edx]
-		cmp	edx, 'l'
+		cmp	byte [esi], 'l'
 		jne	.wrong_percent
+		inc	esi
 		or	eax, LL
-		ret
+		jmp	.endloop
 	
 	.wrong_percent:
 		xor	eax, eax
 		.wrong_loop:
-			mov	[edi], edx
+			mov	dl, [ecx]
+			mov	[edi], dl
 			inc	edi
 			inc	ecx
-			mov	edx, [ecx]
 			cmp	ecx, esi
 			jne	.wrong_loop
+		mov	dl, [ecx]
+		mov	[edi], dl
+		dec	esi
 		jmp	.endloop
 	
 	.percent_out:
-		mov	[edi], edx
+		mov	[edi], dl
 		inc	edi
 		xor	eax, eax
 		jmp	.endloop
