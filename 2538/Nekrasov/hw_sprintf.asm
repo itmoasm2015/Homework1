@@ -380,30 +380,22 @@ number_out:
 
 .number_out2:						; for a long number
 	push	ebx
-	mov	eax, [ebp + 4]
-	cmp	eax, 10
-	jb	.number_out_continue
+	mov	ebx, 10
 	.number_loop2:
 		dec	edi
 		xor	edx, edx
-		mov	ebx, 10
+		mov	eax, [ebp + 4]
 		div	ebx
+		mov	[ebp + 4], eax
+		
+		mov	eax, [ebp]
+		div	ebx
+		mov	[ebp], eax
+		
 		add	dl, '0'
 		mov	[edi], dl
-		cmp	eax, 10
-		jnb	.number_loop2
-.number_out_continue:
-	mov	edx, eax
-	mov	eax, [ebp]
-	.number_loop3:
-		dec	edi
-		mov	ebx, 10
-		div	ebx
-		add	dl, '0'
-		mov	[edi], dl
-		xor	edx, edx
 		test	eax, eax
-		jnz	.number_loop3
+		jnz	.number_loop2
 	lea	edi, [edi + esi]
 	pop	ebx
 

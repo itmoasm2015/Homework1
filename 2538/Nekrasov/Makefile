@@ -1,5 +1,5 @@
 ASM_FLAGS = -g dwarf2 -f elf32
-CXX_FLAGS = -g -Wall -Werror -m32 -L. -I../../include
+CXX_FLAGS = -g -m32 -L. -I../../include
 
 all: tester
 
