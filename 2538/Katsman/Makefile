@@ -4,7 +4,6 @@ PROJECT=hw_sprintf
 
 all: test.o libhw.a
 	g++ -o test $(CFLAGS) test.o -lhw
-	rm -f libhw.a
 	rm -f $(PROJECT).o
 	rm -f test.o
 
